@@ -49,11 +49,13 @@ def get_tmdb_scraper(settings):
 
 
 def get_tmdb_details(unique_ids):
+    """Returns a dict or None if TMDB failed somehow"""
+    # Might return False
     details = get_tmdb_scraper(TMDB_SETTINGS).get_details(unique_ids)
-    if 'error' in details:
+    if not details or 'error' in details:
         logger.debug('Could not get tmdb details for %s. Error: %s',
                      unique_ids, details)
-    return details
+    return details or None
 
 
 def process_trailers(plex_id, plex_type, refresh=False):
@@ -88,7 +90,8 @@ def process_trailers(plex_id, plex_type, refresh=False):
                          plex_type, api.title())
             return
         trailer = get_tmdb_details(api.guids)
-        trailer = trailer.get('info', {}).get('trailer')
+        if trailer:
+            trailer = trailer.get('info', {}).get('trailer')
         if trailer:
             with KodiVideoDB() as kodidb:
                 kodidb.set_trailer(db_item['kodi_id'],
