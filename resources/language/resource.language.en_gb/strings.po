@@ -1560,3 +1560,8 @@ msgstr ""
 msgctxt "#39725"
 msgid "Force transcode AV1"
 msgstr ""
+
+# PKC Settings - Playback
+msgctxt "#39726"
+msgid "Enable transcoding using h265/HEVC codec (restart Kodi!)"
+msgstr ""

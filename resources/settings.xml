@@ -135,6 +135,7 @@
         <setting id="transcodeH265" type="enum" label="30522" default="0" values="Disabled (default)|480p (and higher)|720p (and higher)|1080p (and higher)|4K" /><!-- Force transcode h265/HEVC -->
         <setting id="transcodeAV1" type="enum" label="39725" default="0" values="Disabled (default)|480p (and higher)|720p (and higher)|1080p (and higher)|4K" /><!-- Force transcode AV1 -->
         <setting id="transcodeHi10P" type="bool" label="39063" default="false"/>
+        <setting id="transcodeIntoH265Profile" type="bool" label="39726" default="false"/>
         <setting id="audioBoost" type="slider" label="39001" default="0" range="0,10,100" option="int"/>
         <setting id="subtitleSize" label="39002" type="slider" option="int" range="0,30,300" default="100" />
         <setting id="force_transcode_pix" type="bool" label="30545" default="false" />
