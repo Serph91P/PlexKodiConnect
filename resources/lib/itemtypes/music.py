@@ -441,8 +441,8 @@ class Song(MusicMixin, ItemBase):
             # compilation not set
             artists = xml.get('originalTitle', api.grandparent_title())
         tracknumber = api.index() or 0
-        disc = api.disc_number() or 1
-        if disc == 1:
+        disc = api.disc_number() or 0
+        if disc == 0:
             track = tracknumber
         else:
             track = disc * 2 ** 16 + tracknumber
