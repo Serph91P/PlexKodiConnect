@@ -15,6 +15,10 @@ msgstr ""
 
 # Add-on settings
 
+msgctxt "#29998"
+msgid "Plex"
+msgstr ""
+
 msgctxt "#29999"
 msgid "PlexKodiConnect"
 msgstr ""
