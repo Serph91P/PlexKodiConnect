@@ -21,7 +21,7 @@
 		<setting id="accessToken" type="text" visible="false" default="" />
 	</category>
 
-	<category label="Plex">
+	<category label="29998"><!-- Plex -->
 		<setting type="lsep" label="plex.tv"/>
 		<setting id="plex_status" label="39071" type="text" default="Not logged in to plex.tv" enable="false" /><!-- Current plex.tv status: -->
 		<setting id="plexLogin" label="39228" type="text" default="" enable="false" /><!-- Plex admin user -->
