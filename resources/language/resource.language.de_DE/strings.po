@@ -730,6 +730,11 @@ msgctxt "#30548"
 msgid "Who picks subtitles on playback start?"
 msgstr "Wer wählt Untertitel beim Start der Wiedergabe?"
 
+# PKC Settings - Playback
+msgctxt "#30550"
+msgid "Enable Up Next integration"
+msgstr "Up Next Integration aktivieren"
+
 # Welcome to Plex notification
 msgctxt "#33000"
 msgid "Welcome"

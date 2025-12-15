@@ -18,6 +18,7 @@ from . import utils, timing, plex_functions as PF
 from . import json_rpc as js, playlist_func as PL
 from . import backgroundthread, app, variables as v
 from . import exceptions
+from . import upnext
 
 LOG = getLogger('PLEX.kodimonitor')
 
@@ -363,6 +364,11 @@ class KodiMonitor(xbmc.Monitor):
         if playerid == v.KODI_VIDEO_PLAYER_ID:
             task = InitVideoStreams(item)
             backgroundthread.BGThreader.addTask(task)
+            # Send Up Next signal for episodes if enabled
+            if plex_type == v.PLEX_TYPE_EPISODE and \
+                    utils.settings('enableUpNext') == 'true':
+                task = SendUpNextSignal(item, status)
+                backgroundthread.BGThreader.addTask(task)
 
     def _on_av_change(self, data):
         """
@@ -682,3 +688,27 @@ class InitVideoStreams(backgroundthread.Task):
                     return
             else:
                 break
+
+
+class SendUpNextSignal(backgroundthread.Task):
+    """
+    Sends the Up Next signal after playback has started.
+    We wait a bit to ensure playback is fully initialized.
+    """
+
+    def __init__(self, item, status):
+        self.item = item
+        self.status = status
+        super().__init__()
+
+    def run(self):
+        # Wait for playback to stabilize before sending Up Next signal
+        if app.APP.monitor.waitForAbort(2):
+            return
+        try:
+            # Get notification time from Plex credits markers if available
+            notification_time = upnext.get_notification_time_from_markers(self.status)
+            upnext.send_upnext_signal(self.item.api, notification_time)
+        except Exception as err:
+            LOG.error('Exception encountered while sending Up Next signal:')
+            LOG.error(err)
