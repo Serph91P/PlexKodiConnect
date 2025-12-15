@@ -115,12 +115,12 @@ def _upnext_signal(data):
 def send_upnext_signal(current_api, notification_time=None):
     """
     Send the Up Next signal if there is a next episode.
-    
+
     Args:
         current_api: The API object of the currently playing episode
         notification_time: Optional time in seconds before the end to show
                           the notification. If None, Up Next uses its default.
-    
+
     Returns:
         True if signal was sent, False otherwise
     """
@@ -143,18 +143,18 @@ def send_upnext_signal(current_api, notification_time=None):
         next_api.plex_id,
         v.PLEX_TYPE_EPISODE
     )
-    
+
     # Build the data structure for Up Next
     upnext_data = {
         'current_episode': _episode_info(current_api),
         'next_episode': _episode_info(next_api),
         'play_url': play_url,
     }
-    
+
     # Add notification_time if provided (e.g., from Plex credits markers)
     if notification_time is not None:
         upnext_data['notification_time'] = notification_time
-    
+
     LOG.debug('Sending Up Next data: current="%s" S%02dE%02d, next="%s" S%02dE%02d',
               current_api.grandparent_title(),
               current_api.season_number() or 0,
@@ -162,7 +162,7 @@ def send_upnext_signal(current_api, notification_time=None):
               next_api.grandparent_title(),
               next_api.season_number() or 0,
               next_api.index() or 0)
-    
+
     _upnext_signal(upnext_data)
     return True
 
