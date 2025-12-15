@@ -127,7 +127,7 @@ def send_upnext_signal(current_api, notification_time=None):
     if current_api.plex_type != v.PLEX_TYPE_EPISODE:
         LOG.debug('Not an episode - skipping Up Next signal')
         return False
-    
+
     next_api = _get_next_episode_api(current_api)
     if next_api is None:
         LOG.debug('No next episode available for Up Next')
