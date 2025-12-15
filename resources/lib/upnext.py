@@ -167,46 +167,63 @@ def send_upnext_signal(current_api, notification_time=None):
     return True
 
 
+def _get_total_seconds_from_kodi_time(total_time):
+    """
+    Convert Kodi time dict to total seconds.
+
+    Args:
+        total_time: Dict with 'hours', 'minutes', 'seconds' keys
+
+    Returns:
+        Total seconds as int, or 0 if total_time is None
+    """
+    if not total_time:
+        return 0
+    return (total_time.get('hours', 0) * 3600 +
+            total_time.get('minutes', 0) * 60 +
+            total_time.get('seconds', 0))
+
+
+def _calculate_notification_time(marker, total_seconds, marker_name):
+    """
+    Calculate notification time from a credits marker.
+
+    Args:
+        marker: Tuple (start_time, end_time) in seconds
+        total_seconds: Total duration in seconds
+        marker_name: Name of the marker for logging
+
+    Returns:
+        Notification time in seconds before end, or None if invalid
+    """
+    if marker and total_seconds > 0 and marker[0] < total_seconds:
+        notification_time = total_seconds - marker[0]
+        LOG.debug('Using %s for Up Next: %s seconds before end',
+                  marker_name, notification_time)
+        return notification_time
+    return None
+
+
 def get_notification_time_from_markers(status):
     """
     Get the notification time from Plex credits markers if available.
-    
+
     Args:
         status: The player status dict containing markers info
-    
+
     Returns:
         The notification time in seconds before the end, or None if not available
     """
+    total_seconds = _get_total_seconds_from_kodi_time(status.get('totaltime'))
+
     # First check for first credits marker (intro to credits)
     first_credits = status.get('first_credits_marker')
-    if first_credits:
-        # first_credits is a tuple (start_time, end_time) in seconds
-        # We want to show notification at the start of credits
-        # notification_time is seconds before the end
-        total_time = status.get('totaltime')
-        if total_time:
-            # Convert Kodi time dict to seconds
-            total_seconds = (total_time.get('hours', 0) * 3600 +
-                           total_time.get('minutes', 0) * 60 +
-                           total_time.get('seconds', 0))
-            if total_seconds > 0 and first_credits[0] < total_seconds:
-                notification_time = total_seconds - first_credits[0]
-                LOG.debug('Using first credits marker for Up Next: %s seconds before end',
-                         notification_time)
-                return notification_time
-    
+    notification_time = _calculate_notification_time(
+        first_credits, total_seconds, 'first credits marker')
+    if notification_time is not None:
+        return notification_time
+
     # Fall back to final credits marker
     final_credits = status.get('final_credits_marker')
-    if final_credits:
-        total_time = status.get('totaltime')
-        if total_time:
-            total_seconds = (total_time.get('hours', 0) * 3600 +
-                           total_time.get('minutes', 0) * 60 +
-                           total_time.get('seconds', 0))
-            if total_seconds > 0 and final_credits[0] < total_seconds:
-                notification_time = total_seconds - final_credits[0]
-                LOG.debug('Using final credits marker for Up Next: %s seconds before end',
-                         notification_time)
-                return notification_time
-    
-    return None
+    return _calculate_notification_time(
+        final_credits, total_seconds, 'final credits marker')
