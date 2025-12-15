@@ -132,10 +132,10 @@ def send_upnext_signal(current_api, notification_time=None):
     if next_api is None:
         LOG.debug('No next episode available for Up Next')
         return False
-    
+
     LOG.debug('Preparing Up Next signal for episode "%s" -> "%s"',
               current_api.title(), next_api.title())
-    
+
     # Build the play_url for the next episode
     # This URL will be called by Up Next to start playback
     play_url = 'plugin://%s?plex_id=%s&plex_type=%s&mode=play' % (
