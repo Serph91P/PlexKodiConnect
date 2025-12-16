@@ -1061,6 +1061,13 @@ class KodiVideoDB(common.KodiDBBase):
         ''', (args))
 
         if self.has_video_version_table:
+            # Kodi Piers (MyVideos >= 134) uses itemType=1 for the default
+            # version, whereas earlier versions use 0. Determine which itemType
+            # to use based on the detected MyVideos database version from
+            # variables.DB_VIDEO_VERSION. If DB_VIDEO_VERSION is not set or is
+            # less than 134, fall back to 0.
+            db_version = getattr(v, "DB_VIDEO_VERSION", None)
+            item_type = "1" if (isinstance(db_version, int) and db_version >= 134) else "0"
             self.cursor.execute(
                 '''
                 INSERT OR REPLACE INTO videoversion(
@@ -1071,7 +1078,7 @@ class KodiVideoDB(common.KodiDBBase):
                     idType)
                 VALUES
                     (?, ?, ?, ?, ?)
-            ''', (args[1], args[0], "movie", "0", 40400))
+                ''', (args[1], args[0], "movie", item_type, 40400))
 
     @db.catch_operationalerrors
     def remove_movie(self, kodi_id):
