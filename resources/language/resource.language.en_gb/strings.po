@@ -713,7 +713,13 @@ msgctxt "#30550"
 msgid "Enable Up Next integration"
 msgstr ""
 
+msgctxt "#30551"
+msgid "Show Up Next addon notifications between episodes. When enabled, skip credits markers are automatically disabled for TV shows to prevent duplicate notifications."
+msgstr ""
 
+msgctxt "#30552"
+msgid "Note: Up Next integration takes priority over skip credits for TV shows"
+msgstr ""
 
 # PKC Settings - entries within toggles
 msgctxt "#31000"

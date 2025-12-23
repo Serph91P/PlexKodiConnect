@@ -991,11 +991,12 @@
                         <popup>false</popup>
                     </control>
                 </setting>
-                <setting id="enableUpNext" type="boolean" label="30550" help=""> <!-- Enable Up Next integration -->
+                <setting id="enableUpNext" type="boolean" label="30550" help="30551"> <!-- Enable Up Next integration -->
                     <level>0</level>
                     <default>false</default>
                     <control type="toggle" />
                 </setting>
+                <setting type="label" label="30552" /> <!-- Note: UpNext will override skip credits for TV shows to avoid double notifications -->
                 <setting id="firstVideoStream" type="boolean" label="30546" help=""> <!-- Pick the first video if several versions are present -->
                     <level>0</level>
                     <default>false</default>

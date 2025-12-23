@@ -1,3 +1,10 @@
+version 4.0.5:
+- Fix Up Next integration: Prevent duplicate notifications with skip credits
+- Up Next now takes priority over skip credits for TV shows automatically
+- Improve settings UI clarity with help text for Up Next integration
+- Add user notification explaining automatic skip credits override for TV episodes
+- Skip credits markers remain active for movies when Up Next is enabled
+
 version 4.0.0:
 - MAJOR UPDATE: Performance optimization infrastructure with Plex API modernization
 - Add field filtering infrastructure (includeFields) - ready for 90-100x bandwidth reduction
