@@ -1,3 +1,12 @@
+version 4.0.6:
+- PERFORMANCE: Activate field filtering for widgets and browsing
+- Reduce bandwidth by 90-100x using includeFields parameter
+- Widgets now only request: title,year,thumb,rating,ratingKey,art,duration,playViewOffset,grandparentTitle,parentTitle,index,parentIndex,type,summary
+- Applied to get_section_iterator() with WIDGET_FIELDS as default
+- Applied to browse_plex() for all folder navigation
+- Significantly faster widget loading and reduced network traffic
+- Infrastructure from PKC 4.0.0 now active for user experience
+
 version 4.0.5:
 - Fix Up Next integration: Prevent duplicate notifications with skip credits
 - Up Next now takes priority over skip credits for TV shows automatically

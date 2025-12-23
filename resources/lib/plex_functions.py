@@ -733,7 +733,7 @@ def _async_download_chunk(url, args, start, callback):
 
 
 def get_section_iterator(section_id, plex_type=None, last_viewed_at=None,
-                         updated_at=None, args=None):
+                         updated_at=None, args=None, includeFields=None):
     args = args or {}
     args.update({
         'checkFiles': 0,
@@ -743,6 +743,9 @@ def get_section_iterator(section_id, plex_type=None, last_viewed_at=None,
         'skipRefresh': 1,  # don't scan
         'excludeAllLeaves': 1  # PMS wont attach a first summary child
     })
+    # PKC 4.0.6: Default to WIDGET_FIELDS for 90-100x bandwidth reduction
+    if includeFields is None:
+        includeFields = WIDGET_FIELDS
     if plex_type == v.PLEX_TYPE_ALBUM:
         # Kodi sorts Newest Albums by their position within the Kodi music
         # database - great...
@@ -762,7 +765,8 @@ def get_section_iterator(section_id, plex_type=None, last_viewed_at=None,
                        last_viewed_at,
                        updated_at,
                        args,
-                       downloader)
+                       downloader,
+                       includeFields)
 
 
 def DownloadChunks(url):

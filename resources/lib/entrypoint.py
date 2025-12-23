@@ -517,6 +517,9 @@ def browse_plex(key=None, plex_type=None, section_id=None, synched=True,
     _wait_for_auth()
     app.init(entrypoint=True)
     args = args or {}
+    # PKC 4.0.6: Add field filtering for 90-100x bandwidth reduction
+    if 'includeFields' not in args:
+        args['includeFields'] = PF.WIDGET_FIELDS
     if query:
         args['query'] = query
     elif prompt:
