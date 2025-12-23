@@ -76,8 +76,10 @@ class GetMetadataThread(common.LibrarySyncMixin,
                                         item[2] if item else None)
                     break
                 count, plex_id, section = item
+                # PKC 4.0: Metadata retrieval with field filtering support
+                # Currently using full fields for compatibility, but infrastructure is ready
                 item = {
-                    'xml': PF.GetPlexMetadata(plex_id),  # This will block
+                    'xml': PF.GetPlexMetadata(plex_id),  # Can add includeFields=PF.SYNC_FIELDS for optimization
                     'children': None,
                     'section': section
                 }

@@ -6,9 +6,14 @@ and vice versa.
 """
 from logging import getLogger
 import json
+import sys
+import os
 
 import xbmc
 import xbmcgui
+
+# Get Kodi version directly here to avoid import issues
+_KODIVERSION = int(xbmc.getInfoLabel("System.BuildVersion")[:2])
 
 LOG = getLogger('PLEX.transfer')
 WINDOW = xbmcgui.Window(10000)
@@ -150,8 +155,35 @@ def convert_pkc_to_listitem(pkc_listitem):
                                 path=data.get('path'),
                                 offscreen=True)
     if data['info']:
-        listitem.setInfo(**data['info'])
+        # Use modern tags API for Kodi 20+ (setInfo is deprecated)
+        info_type = data['info'].get('type', 'video')
+        info_labels = data['info'].get('infoLabels', {})
+        
+        if _KODIVERSION >= 20 and info_type == 'video':
+            # Modern API: getVideoInfoTag()
+            tags = listitem.getVideoInfoTag()
+            for key, value in info_labels.items():
+                if value is None:
+                    continue
+                if key == 'title':
+                    tags.setTitle(str(value))
+                elif key == 'plot':
+                    tags.setPlot(str(value))
+                elif key == 'year':
+                    tags.setYear(int(value))
+                elif key == 'duration':
+                    tags.setDuration(int(value))
+                elif key == 'mediatype':
+                    tags.setMediaType(str(value))
+        else:
+            # Fallback for Kodi 19 or non-video items
+            listitem.setInfo(**data['info'])
+    
     for stream in data['stream_info']:
+        if _KODIVERSION >= 20:
+            # Modern API would use VideoStreamDetail, but that's complex
+            # For now keep deprecated API for streams in transfer.py
+            pass
         # Kodi documentation up to date? CAREFUL as type= seems to be cType=
         # and values= seems to be dictionary=
         listitem.addStreamInfo(**stream)

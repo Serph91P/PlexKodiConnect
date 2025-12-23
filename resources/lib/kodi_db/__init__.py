@@ -26,8 +26,12 @@ def kodiid_from_filename(path, kodi_type=None, db_type=None):
         filename = path.rsplit('/', 1)[1]
         path = path.rsplit('/', 1)[0] + '/'
     except IndexError:
-        filename = path.rsplit('\\', 1)[1]
-        path = path.rsplit('\\', 1)[0] + '\\'
+        try:
+            filename = path.rsplit('\\', 1)[1]
+            path = path.rsplit('\\', 1)[0] + '\\'
+        except IndexError:
+            LOG.warning('Invalid path without separators: %s', path)
+            return None, kodi_type
     if kodi_type == v.KODI_TYPE_SONG or db_type == 'music':
         with KodiMusicDB(lock=False) as kodidb:
             try:

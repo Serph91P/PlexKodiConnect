@@ -333,7 +333,26 @@ class ManagedListItem(object):
         return self.listItem.setArt(values)
 
     def setInfo(self, itype, infoLabels):
-        return self.listItem.setInfo(itype, infoLabels)
+        """Set item info. Uses modern Tags API on Kodi 20+."""
+        # Import here to avoid circular imports
+        from .. import variables as v
+        
+        if v.KODIVERSION >= 20 and itype.lower() == 'video':
+            # Use modern getVideoInfoTag() API
+            tags = self.listItem.getVideoInfoTag()
+            if 'title' in infoLabels:
+                tags.setTitle(str(infoLabels['title']))
+            if 'plot' in infoLabels:
+                tags.setPlot(str(infoLabels['plot']))
+            if 'year' in infoLabels:
+                tags.setYear(int(infoLabels['year']))
+            if 'mediatype' in infoLabels:
+                tags.setMediaType(str(infoLabels['mediatype']))
+            # Add more fields as needed by kodigui usage
+            return True
+        else:
+            # Fallback for Kodi 19 or non-video types
+            return self.listItem.setInfo(itype, infoLabels)
 
     def setLabel(self, label):
         self.label = label

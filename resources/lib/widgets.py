@@ -12,7 +12,7 @@ import xbmc
 import xbmcgui
 import xbmcvfs
 
-from . import json_rpc as js, utils, variables as v
+from . import json_rpc as js, utils, variables as v, plex_functions as PF
 
 LOG = getLogger('PLEX.widget')
 
@@ -703,9 +703,32 @@ def create_listitem(item, as_tuple=True, offscreen=True,
                 tags.setDateAdded(str(infolabels["dateadded"]))
             if "mediatype" in infolabels:
                 tags.setMediaType(str(infolabels["mediatype"]))
-
+        elif nodetype == "Music":
+            # Music items: use getMusicInfoTag() for Kodi 20+
+            if USE_TAGS:
+                tags = liz.getMusicInfoTag()
+                if "title" in infolabels:
+                    tags.setTitle(str(infolabels["title"]))
+                if "artist" in infolabels:
+                    tags.setArtist(str(infolabels.get("artist", "")))
+                if "album" in infolabels:
+                    tags.setAlbum(str(infolabels["album"]))
+                if "duration" in infolabels:
+                    tags.setDuration(int(infolabels["duration"]))
+                if "track" in infolabels:
+                    tags.setTrack(int(infolabels["track"]))
+                if "genre" in infolabels:
+                    tags.setGenres(infolabels["genre"].split(" / ") if isinstance(infolabels["genre"], str) else infolabels["genre"])
+            else:
+                # Fallback for Kodi 19 and older
+                liz.setInfo(type=nodetype, infoLabels=infolabels)
         else:
-            liz.setInfo(type=nodetype, infoLabels=infolabels)
+            # For non-Video, non-Music items or when tags not available
+            # This will eventually be removed when Kodi 19 support is dropped
+            if not USE_TAGS:
+                liz.setInfo(type=nodetype, infoLabels=infolabels)
+            else:
+                LOG.warning("Unsupported nodetype '%s' for modern tags API", nodetype)
 
         # artwork
         liz.setArt(item.get("art", {}))

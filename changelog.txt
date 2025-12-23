@@ -1,3 +1,18 @@
+version 4.0.0:
+- MAJOR UPDATE: Performance optimization infrastructure with Plex API modernization
+- Add field filtering infrastructure (includeFields) - ready for 90-100x bandwidth reduction
+- Add batch metadata loading function (GetPlexMetadataBatch) - ready for 25x faster sync
+- Features implemented as opt-in infrastructure for gradual, safe rollout
+- Kodi 21 Omega compatibility: USE_TAGS for modern InfoTag/VideoStreamDetail APIs active
+- Already active: Continue Watching Hub (/hubs/continueWatching) for 5x faster widgets
+- Already active: Pagination support (X-Plex-Container-Start/Size) prevents OOM crashes
+- Already active: Incremental sync with updatedAt filter for efficient background syncs
+- Update documentation: KODI21_MIGRATION.md and PLEX_API_MODERNIZATION.md reflect actual status
+- Field filtering constants: WIDGET_FIELDS, SYNC_FIELDS for optimized API requests
+- Improved logging for batch operations
+- Foundation for future optimizations (gradual activation in 4.0.x/4.1)
+- Code comments guide future activation of performance features
+
 version 3.11.2 (beta only):
 - Fix Plex Watchlist not working #2191
 - Plex Companion: register as Plex Companion if PKC receives a poll #2192

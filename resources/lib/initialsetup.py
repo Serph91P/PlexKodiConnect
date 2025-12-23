@@ -442,6 +442,32 @@ class InitialSetup(object):
                 return server
 
     @staticmethod
+    def _is_local_ip(ip):
+        """
+        Checks if IP is in private address space (RFC 1918)
+        Returns True for 192.168.x.x, 10.x.x.x, 172.16-31.x.x, 127.x.x.x
+        """
+        try:
+            parts = [int(x) for x in ip.split('.')]
+            if len(parts) != 4:
+                return False
+            # 192.168.0.0/16
+            if parts[0] == 192 and parts[1] == 168:
+                return True
+            # 10.0.0.0/8
+            if parts[0] == 10:
+                return True
+            # 172.16.0.0/12
+            if parts[0] == 172 and 16 <= parts[1] <= 31:
+                return True
+            # 127.0.0.0/8 (localhost)
+            if parts[0] == 127:
+                return True
+            return False
+        except (ValueError, AttributeError):
+            return False
+
+    @staticmethod
     def write_pms_to_settings(server):
         """
         Saves server to file settings
@@ -450,6 +476,10 @@ class InitialSetup(object):
         utils.settings('plex_servername', server['name'])
         utils.settings('plex_serverowned',
                        'true' if server['owned'] else 'false')
+        
+        # Determine if server is truly local by checking IP address
+        is_local_network = InitialSetup._is_local_ip(server.get('ip', ''))
+        
         # Careful to distinguish local from remote PMS
         if server['local']:
             scheme = server['scheme']
@@ -458,6 +488,23 @@ class InitialSetup(object):
             LOG.debug("Setting SSL verify to false, because server is "
                       "local")
             utils.settings('sslverify', 'false')
+            
+            # For local network IPs, prefer HTTP over HTTPS (certificate issues)
+            if is_local_network and scheme == 'https':
+                LOG.info("Local server detected (%s), asking user about HTTP",
+                         server['ip'])
+                # Ask user if they want to use HTTP for better compatibility
+                if utils.yesno_dialog(
+                    heading=utils.lang(29999),  # Plex
+                    message=(
+                        'Local Plex server detected at %s.\n'
+                        'Use HTTP instead of HTTPS for better direct play compatibility?\n'
+                        '(Recommended for local networks)' % server['ip']
+                    )):
+                    scheme = 'http'
+                    LOG.info("User chose HTTP for local server")
+                else:
+                    LOG.info("User chose to keep HTTPS for local server")
         else:
             baseURL = server['baseURL'].split(':')
             scheme = baseURL[0]
