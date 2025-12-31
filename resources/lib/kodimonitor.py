@@ -334,22 +334,20 @@ class KodiMonitor(xbmc.Monitor):
                 container_key = '/library/metadata/%s' % plex_id
         # Mechanik for Plex skip intro/credits/commercials feature
         # PKC 4.0.5: Smart integration with UpNext - avoid double notifications
+        # Credits markers are needed both for skip credits AND for Up Next timing
         upnext_active = (plex_type == v.PLEX_TYPE_EPISODE and 
                         utils.settings('enableUpNext') == 'true')
         
-        # For episodes with UpNext active: disable skip credits to avoid double notifications
-        # For movies or when UpNext is off: skip credits works normally
-        skip_credits_enabled = (utils.settings('enableSkipCredits') == 'true' and 
-                               not upnext_active)
-        
         if utils.settings('enableSkipIntro') == 'true' \
-                or skip_credits_enabled \
+                or utils.settings('enableSkipCredits') == 'true' \
                 or utils.settings('enableSkipCommercials') == 'true':
             status['markers'] = item.api.markers()
             status['markers_hidden'] = {}
-            if skip_credits_enabled:
-                status['first_credits_marker'] = item.api.first_credits_marker()
-                status['final_credits_marker'] = item.api.final_credits_marker()
+        # Set credits markers if skip credits OR Up Next is enabled
+        # Up Next uses these markers for notification timing
+        if utils.settings('enableSkipCredits') == 'true' or upnext_active:
+            status['first_credits_marker'] = item.api.first_credits_marker()
+            status['final_credits_marker'] = item.api.final_credits_marker()
         if item.playmethod is None and path and not path.startswith('plugin://'):
             item.playmethod = v.PLAYBACK_METHOD_DIRECT_PATH
         item.playerid = playerid

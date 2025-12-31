@@ -12,6 +12,15 @@ MARKERS = {
     'commercial': (utils.lang(30530), 'enableSkipCommercials', 'enableAutoSkipCommercials'),  # Skip commercial
 }
 
+
+def _should_skip_credits_popup():
+    """
+    Returns True if we should suppress the PKC credits popup.
+    This happens when Up Next is enabled, as Up Next will handle the credits notification.
+    """
+    return utils.settings('enableUpNext') == 'true'
+
+
 def skip_markers(markers, markers_hidden):
     try:
         progress = app.APP.player.getTime()
@@ -22,6 +31,9 @@ def skip_markers(markers, markers_hidden):
     marker_definition = None
     for start, end, typus, _ in markers:
         marker_definition = MARKERS[typus]
+        # Skip the PKC credits popup if Up Next is enabled (Up Next handles it)
+        if typus == 'credits' and _should_skip_credits_popup():
+            continue
         # The "-1" is important since timestamps/seeks are not exact and we
         # could end up in an endless loop within start & end
         # see https://github.com/croneter/PlexKodiConnect/issues/2002
