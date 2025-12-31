@@ -1,3 +1,6 @@
+version 3.11.3 (beta only):
+- Restore compatibility with Kodi Piers' latest Alpha version #2200
+
 version 3.11.2 (beta only):
 - Fix Plex Watchlist not working #2191
 - Plex Companion: register as Plex Companion if PKC receives a poll #2192
