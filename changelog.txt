@@ -1,3 +1,6 @@
+version 3.11.4:
+- versions 3.11.2 and 3.11.3 for everyone
+
 version 3.11.3 (beta only):
 - Restore compatibility with Kodi Piers' latest Alpha version #2200
 
