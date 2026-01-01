@@ -1,3 +1,6 @@
+version 3.11.5 (beta only):
+- Feature: integration with the [Kodi add-on Up Next](https://kodi.wiki/view/Add-on:Up_Next) (thanks @Serph91P) @#2198
+
 version 3.11.4:
 - versions 3.11.2 and 3.11.3 for everyone
 
