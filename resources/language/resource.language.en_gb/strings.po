@@ -708,11 +708,6 @@ msgctxt "#30548"
 msgid "Who picks subtitles on playback start?"
 msgstr ""
 
-# PKC Settings - Playback
-msgctxt "#30550"
-msgid "Enable Up Next integration"
-msgstr ""
-
 
 
 # PKC Settings - entries within toggles

@@ -991,11 +991,6 @@
                         <popup>false</popup>
                     </control>
                 </setting>
-                <setting id="enableUpNext" type="boolean" label="30550" help=""> <!-- Enable Up Next integration -->
-                    <level>0</level>
-                    <default>false</default>
-                    <control type="toggle" />
-                </setting>
                 <setting id="firstVideoStream" type="boolean" label="30546" help=""> <!-- Pick the first video if several versions are present -->
                     <level>0</level>
                     <default>false</default>
