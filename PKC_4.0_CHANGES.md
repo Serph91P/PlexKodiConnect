@@ -1,132 +1,99 @@
-# PlexKodiConnect 4.1.0 - Änderungen
+# PlexKodiConnect 4.2.0 - Änderungen
 
 **Datum:** 1. Januar 2026  
-**Status:** ✅ Alle 4.0/4.1 Features implementiert & aktiv
+**Status:** ✅ Alle 4.0/4.1/4.2 Features implementiert & aktiv
 
 ---
 
-## 🎉 Was ist neu in PKC 4.0.0?
+## 🎉 Was ist neu in PKC 4.2.0?
 
-### 1. ⚡ Field Filtering (90-100x weniger Bandwidth)
+### 1. 🧠 Smart Metadata Caching (NEU)
 
-**Datei:** `resources/lib/plex_functions.py`
+**Datei:** `resources/lib/metadata_cache.py`
 
-**Neue Konstanten:**
+**Neue Features:**
+- LRU (Least Recently Used) Cache für Plex-Metadaten
+- TTL (Time To Live) basierte Expiration
+- Thread-safe für Multi-Threading
+- Automatische Speicherverwaltung
+
+**Cache-Typen:**
 ```python
-WIDGET_FIELDS = 'title,year,thumb,rating,ratingKey,art,duration,playViewOffset,grandparentTitle,parentTitle,index,parentIndex,type,summary'
-SYNC_FIELDS = 'ratingKey,updatedAt,title,type'
-DETAIL_FIELDS = None  # All fields
-```
-
-**Erweiterte Funktionen:**
-- `GetPlexMetadata(key, reraise=False, includeFields=None)` - Neuer Parameter `includeFields`
-- `DownloadGen.__init__(..., includeFields=None)` - Field Filtering für Pagination
-
-**Nutzen:**
-- Widget-Requests laden nur benötigte Felder → 50 MB → 500 KB
-- 90-100x weniger Datenverkehr über Netzwerk
-- Schnelleres Parsing, weniger RAM-Verbrauch
-
----
-
-### 2. 🚀 Batch-Metadata Loading (25x schnellerer Sync)
-
-**Datei:** `resources/lib/plex_functions.py`
-
-**Neue Funktion:**
-```python
-def GetPlexMetadataBatch(item_ids, batch_size=100):
-    """
-    Get metadata for multiple items efficiently in batches
-    
-    Returns: List of metadata XML elements
-    """
+CACHE_TYPE_WIDGET = 'widget'   # 5 min TTL - für Widgets
+CACHE_TYPE_DETAIL = 'detail'   # 15 min TTL - für Detail-Views
+CACHE_TYPE_SYNC = 'sync'       # 60 min TTL - für Sync-Operationen
 ```
 
 **Nutzen:**
-- Sync lädt 100 Items pro Request statt einzeln
-- 1000 Items: 1000 Requests → 10 Requests
-- Initial Sync 25x schneller (50 Sekunden → 2 Sekunden)
+- Wiederholte API-Requests werden vermieden
+- Schnellere Widget-Performance
+- Reduzierte Server-Last
+- Konfigurierbare Cache-Größe (100-5000 Items)
 
 ---
 
-### 3. ✅ Bereits vorhandene Features bestätigt
+### 2. ⚡ Background-Sync Optimierung (NEU)
 
-**Code-Analyse ergab:**
-- ✅ Continue Watching Hub (`/hubs/continueWatching`) - Line entrypoint.py:448
-- ✅ Pagination (`X-Plex-Container-Start/Size`) - Line plex_functions.py:622-623
-- ✅ Incremental Sync (`updatedAt>=`) - Line plex_functions.py:631
-- ✅ Kodi 21 InfoTag APIs (`USE_TAGS`) - Line widgets.py:29
+**Datei:** `resources/lib/library_sync/websocket.py`
 
----
+**Verbesserungen:**
+- Batch-Processing für WebSocket-Updates
+- Mehrere gleichzeitige Updates in einem Request
+- Automatische Cache-Invalidierung bei Änderungen
 
-## 📋 Geänderte Dateien
-
-### Core-Funktionalität
-1. **resources/lib/plex_functions.py**
-   - Zeile 13-18: Neue Konstanten (WIDGET_FIELDS, SYNC_FIELDS)
-   - Zeile 477: GetPlexMetadata erweitert um includeFields
-   - Zeile 615: DownloadGen erweitert um includeFields
-   - Zeile 814: Neue GetPlexMetadataBatch Funktion
-
-### Versions-Dateien
-2. **addon.xml**
-   - Version: 3.11.2 → 4.0.0
-   - Changelog aktualisiert
-
-3. **changelog.txt**
-   - Version 4.0.0 Entry hinzugefügt
-
-4. **README.md**
-   - PKC Features Section aktualisiert
-
-### Dokumentation
-5. **KODI21_MIGRATION.md**
-   - Status aktualisiert (bereits implementiert)
-
-6. **PLEX_API_MODERNIZATION.md**
-   - Status aktualisiert (Features checklist)
+**Nutzen:**
+- Effizienterer Incremental Sync
+- Weniger einzelne API-Calls
+- Schnellere Aktualisierung nach Änderungen am PMS
 
 ---
 
-## 🧪 Testing-Checkliste
+## 📋 Neue Settings (PKC 4.2)
 
-### Basis-Tests
-- [ ] PKC installiert und startet ohne Fehler
-- [ ] Kodi 21 Omega: Keine Deprecated Warnings
-- [ ] Verbindung zu PMS funktioniert
+In `Settings → PKC Settings → Sync Options`:
 
-### Field Filtering Tests
-- [ ] Widgets laden schneller (subjektiv spürbar)
-- [ ] Kodi Log zeigt `includeFields` in Requests (mit Debug-Logging)
-- [ ] Alle Metadaten korrekt angezeigt (Titel, Jahr, Rating, etc.)
-
-### Batch-Metadata Tests
-- [ ] Initial Sync funktioniert
-- [ ] Sync ist deutlich schneller (Timer im Log)
-- [ ] Kodi Log zeigt "Batch-loaded X metadata items from Y requests"
-- [ ] Alle Items korrekt in Kodi DB
-
-### Regressions-Tests
-- [ ] Continue Watching Widget funktioniert
-- [ ] Große Libraries (5000+ Items) crashen nicht
-- [ ] Incremental Sync funktioniert
-- [ ] Playback funktioniert normal
-- [ ] Resume funktioniert
-- [ ] Artwork wird geladen
-
-### Performance-Messung
-Empfohlene Messwerte vor/nach:
-- Widget Load Time: `[vorher]s` → `[nachher]s`
-- Initial Sync (1000 Items): `[vorher]s` → `[nachher]s`
-- Network Traffic (Widget): `[vorher] MB` → `[nachher] MB`
+| Setting | Default | Beschreibung |
+|---------|---------|--------------|
+| Smart metadata caching | ✅ Aktiv | Metadaten im RAM cachen |
+| Metadata cache size | 1000 | Maximale Items im Cache |
 
 ---
 
-## 🔧 Wie Field Filtering nutzen?
+## 🔧 Integration
 
-### Für Widget-Requests (zukünftig):
+### GetPlexMetadata mit Cache:
 ```python
+# Automatisches Caching (default)
+xml = PF.GetPlexMetadata(plex_id)
+
+# Cache manuell deaktivieren
+xml = PF.GetPlexMetadata(plex_id, use_cache=False)
+
+# Cache-Typ explizit setzen
+from metadata_cache import CACHE_TYPE_WIDGET
+xml = PF.GetPlexMetadata(plex_id, cache_type=CACHE_TYPE_WIDGET)
+```
+
+### Cache-Invalidierung:
+```python
+from metadata_cache import invalidate_item, clear_cache
+
+# Einzelnes Item invalidieren
+invalidate_item(plex_id)
+
+# Gesamten Cache leeren
+clear_cache()
+```
+
+### Cache-Statistiken:
+```python
+from metadata_cache import get_cache_stats
+
+stats = get_cache_stats()
+# {'size': 500, 'hits': 1000, 'misses': 50, 'hit_rate': 95.2}
+```
+
+---
 # In widgets.py oder ähnlich
 xml = PF.GetPlexMetadata(plex_id, includeFields=PF.WIDGET_FIELDS)
 ```
@@ -231,13 +198,17 @@ for metadata in metadata_list:
 - [x] Settings: "Batch metadata requests" Option (opt-out)
 - [x] Multi-Threading für parallele Batch-Requests (4 Worker)
 
-**PKC 4.2 (Geplant):**
-- [ ] Smart Caching basierend auf Field Filters
-- [ ] Background-Sync Optimierung
+**PKC 4.2 (IMPLEMENTIERT ✅):**
+- [x] Smart Metadata Caching (`metadata_cache.py`)
+- [x] Background-Sync Batch-Optimierung
+- [x] Cache-Invalidierung bei Updates/Deletes
+- [x] Settings: "Smart caching" Option
+- [x] Settings: "Cache size" Option
 
 **PKC 5.0 (Zukunft):**
-- [ ] JWT Authentication
+- [ ] JWT Authentication (wenn Plex es einführt)
 - [ ] Media Providers API (falls Plex alte API deprecated)
+- [ ] Enhanced Kodi 22 Support
 
 ---
 

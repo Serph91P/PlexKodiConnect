@@ -738,6 +738,22 @@ msgctxt "#30563"
 msgid "Load metadata in batches of 100 items instead of individual requests. Makes sync 25x faster. Disable if you experience sync issues."
 msgstr ""
 
+msgctxt "#30564"
+msgid "Smart metadata caching"
+msgstr ""
+
+msgctxt "#30565"
+msgid "Cache metadata in memory to avoid repeated API requests. Reduces server load and improves widget performance."
+msgstr ""
+
+msgctxt "#30566"
+msgid "Metadata cache size"
+msgstr ""
+
+msgctxt "#30567"
+msgid "Maximum number of items to keep in the metadata cache. Higher values use more memory but reduce API requests."
+msgstr ""
+
 # PKC Settings - entries within toggles
 msgctxt "#31000"
 msgid "plex.tv"

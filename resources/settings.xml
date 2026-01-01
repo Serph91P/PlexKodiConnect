@@ -558,6 +558,28 @@
                     <default>true</default>
                     <control type="toggle" />
                 </setting>
+                <setting id="enableSmartCache" type="boolean" label="30564" help="30565"> <!-- Smart metadata caching -->
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle" />
+                </setting>
+                <setting id="metadataCacheSize" type="integer" label="30566" help="30567"> <!-- Metadata cache size -->
+                    <level>1</level>
+                    <default>1000</default>
+                    <dependencies>
+                        <dependency type="visible">
+                            <condition operator="is" setting="enableSmartCache">true</condition>
+                        </dependency>
+                    </dependencies>
+                    <constraints>
+                        <minimum>100</minimum>
+                        <step>100</step>
+                        <maximum>5000</maximum>
+                    </constraints>
+                    <control type="slider" format="integer">
+                        <popup>false</popup>
+                    </control>
+                </setting>
             </group>
             <group id="4" label="136" />
             <group id="5">

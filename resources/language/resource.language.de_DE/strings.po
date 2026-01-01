@@ -752,6 +752,22 @@ msgctxt "#30563"
 msgid "Load metadata in batches of 100 items instead of individual requests. Makes sync 25x faster. Disable if you experience sync issues."
 msgstr "Metadaten in 100er-Batches laden statt einzeln. Macht Sync 25x schneller. Deaktivieren bei Sync-Problemen."
 
+msgctxt "#30564"
+msgid "Smart metadata caching"
+msgstr "Intelligentes Metadaten-Caching"
+
+msgctxt "#30565"
+msgid "Cache metadata in memory to avoid repeated API requests. Reduces server load and improves widget performance."
+msgstr "Metadaten im Speicher zwischenspeichern um wiederholte API-Anfragen zu vermeiden. Reduziert Server-Last und verbessert Widget-Performance."
+
+msgctxt "#30566"
+msgid "Metadata cache size"
+msgstr "Metadaten-Cache Größe"
+
+msgctxt "#30567"
+msgid "Maximum number of items to keep in the metadata cache. Higher values use more memory but reduce API requests."
+msgstr "Maximale Anzahl an Items im Metadaten-Cache. Höhere Werte brauchen mehr RAM aber reduzieren API-Anfragen."
+
 # Welcome to Plex notification
 msgctxt "#33000"
 msgid "Welcome"

@@ -9,6 +9,7 @@ from ..plex_db import PlexDB
 from .. import kodi_db
 from .. import backgroundthread, plex_functions as PF, itemtypes
 from .. import artwork, utils, timing, variables as v, app
+from .. import metadata_cache
 
 if PLAYLIST_SYNC_ENABLED:
     from .. import playlists
@@ -45,6 +46,10 @@ def store_websocket_message(message):
         store_activity_message(message['ActivityNotification'])
 
 
+# PKC 4.2: Batch size for incremental sync optimization
+INCREMENTAL_BATCH_SIZE = 20
+
+
 def process_websocket_messages():
     """
     Periodically called to process new/updated PMS items
@@ -75,32 +80,73 @@ def process_websocket_messages():
     now = timing.unix_timestamp()
     update_kodi_video_library, update_kodi_music_library = False, False
     delete_list = []
+    
+    # PKC 4.2: Batch-collect ready messages for optimized processing
+    ready_messages = []
+    delete_messages = []
+    
     for i, message in enumerate(WEBSOCKET_MESSAGES):
         if message['state'] == 9:
-            successful, video, music = process_delete_message(message)
+            # Deletions are processed immediately
+            delete_messages.append((i, message))
         elif now - message['timestamp'] < app.SYNC.backgroundsync_saftymargin:
             # We haven't waited long enough for the PMS to finish processing the
             # item. Do it later (excepting deletions)
             continue
         else:
-            successful, video, music = process_new_item_message(message)
-            if successful:
-                task = ProcessMetadataTask()
-                task.setup(message['plex_id'],
-                           message['plex_type'],
-                           refresh=False)
-                backgroundthread.BGThreader.addTask(task)
+            ready_messages.append((i, message))
+    
+    # Process deletions first (don't need batching)
+    for i, message in delete_messages:
+        successful, video, music = process_delete_message(message)
         if successful is True:
             delete_list.append(i)
             update_kodi_video_library = True if video else update_kodi_video_library
             update_kodi_music_library = True if music else update_kodi_music_library
         else:
-            # Safety net if we can't process an item
             message['attempt'] += 1
             if message['attempt'] > 3:
-                LOG.error('Repeatedly could not process message %s, abort',
-                          message)
+                LOG.error('Repeatedly could not process message %s, abort', message)
                 delete_list.append(i)
+    
+    # PKC 4.2: Process new/updated items with batch optimization
+    if ready_messages:
+        batch_enabled = utils.settings('enableBatchMetadata') == 'true'
+        
+        if batch_enabled and len(ready_messages) >= 2:
+            # Batch processing for multiple updates
+            results = process_new_items_batch(ready_messages)
+            for i, result in results:
+                successful, video, music = result
+                if successful is True:
+                    delete_list.append(i)
+                    update_kodi_video_library = True if video else update_kodi_video_library
+                    update_kodi_music_library = True if music else update_kodi_music_library
+                else:
+                    message = WEBSOCKET_MESSAGES[i]
+                    message['attempt'] += 1
+                    if message['attempt'] > 3:
+                        LOG.error('Repeatedly could not process message %s, abort', message)
+                        delete_list.append(i)
+        else:
+            # Individual processing for single items or when batch disabled
+            for i, message in ready_messages:
+                successful, video, music = process_new_item_message(message)
+                if successful:
+                    task = ProcessMetadataTask()
+                    task.setup(message['plex_id'],
+                               message['plex_type'],
+                               refresh=False)
+                    backgroundthread.BGThreader.addTask(task)
+                if successful is True:
+                    delete_list.append(i)
+                    update_kodi_video_library = True if video else update_kodi_video_library
+                    update_kodi_music_library = True if music else update_kodi_music_library
+                else:
+                    message['attempt'] += 1
+                    if message['attempt'] > 3:
+                        LOG.error('Repeatedly could not process message %s, abort', message)
+                        delete_list.append(i)
 
     # Get rid of the items we just processed
     if delete_list:
@@ -111,8 +157,89 @@ def process_websocket_messages():
                             music=update_kodi_music_library)
 
 
+def process_new_items_batch(indexed_messages):
+    """
+    PKC 4.2: Batch process multiple new/updated items
+    Uses GetPlexMetadataBatch for efficient loading
+    
+    Args:
+        indexed_messages: List of (index, message) tuples
+    
+    Returns:
+        List of (index, (successful, video, music)) tuples
+    """
+    results = []
+    plex_ids = []
+    id_to_index = {}
+    
+    # Collect plex_ids and invalidate cache
+    for i, message in indexed_messages:
+        plex_id = message['plex_id']
+        metadata_cache.invalidate_item(plex_id)
+        plex_ids.append(plex_id)
+        id_to_index[plex_id] = i
+    
+    LOG.debug('Batch-loading %d websocket items', len(plex_ids))
+    
+    # Batch-load all metadata
+    metadata_list = PF.GetPlexMetadataBatch(plex_ids, INCREMENTAL_BATCH_SIZE)
+    
+    # Create lookup map
+    metadata_by_id = {}
+    for metadata in metadata_list:
+        plex_id = metadata.get('ratingKey')
+        if plex_id:
+            metadata_by_id[int(plex_id)] = metadata
+    
+    # Process each item
+    for i, message in indexed_messages:
+        plex_id = message['plex_id']
+        
+        if plex_id not in metadata_by_id:
+            LOG.error('Could not download metadata for %s', plex_id)
+            results.append((i, (False, False, False)))
+            continue
+        
+        xml_data = metadata_by_id[plex_id]
+        try:
+            plex_type = xml_data.attrib['type']
+        except (AttributeError, KeyError):
+            LOG.error('Invalid metadata for %s', plex_id)
+            results.append((i, (False, False, False)))
+            continue
+        
+        LOG.debug("Processing new/updated PMS item: %s", plex_id)
+        
+        # Wrap in container-like structure for add_update
+        class XMLContainer:
+            def __init__(self, data):
+                self._data = data
+            def get(self, key, default=None):
+                return self._data.attrib.get(key, default) if hasattr(self._data, 'attrib') else default
+        
+        container = XMLContainer(xml_data)
+        
+        with itemtypes.ITEMTYPE_FROM_PLEXTYPE[plex_type](timing.unix_timestamp()) as typus:
+            typus.add_update(xml_data,
+                             section_name=container.get('librarySectionTitle'),
+                             section_id=utils.cast(int, container.get('librarySectionID')))
+        
+        cache_artwork(plex_id, plex_type)
+        
+        # Queue additional metadata task
+        task = ProcessMetadataTask()
+        task.setup(plex_id, plex_type, refresh=False)
+        backgroundthread.BGThreader.addTask(task)
+        
+        results.append((i, (True, plex_type in v.PLEX_VIDEOTYPES, plex_type in v.PLEX_AUDIOTYPES)))
+    
+    return results
+
+
 def process_new_item_message(message):
     LOG.debug('Message: %s', message)
+    # PKC 4.2: Invalidate cache for updated item
+    metadata_cache.invalidate_item(message['plex_id'])
     xml = PF.GetPlexMetadata(message['plex_id'])
     try:
         plex_type = xml[0].attrib['type']
@@ -130,6 +257,8 @@ def process_new_item_message(message):
 
 def process_delete_message(message):
     plex_type = message['plex_type']
+    # PKC 4.2: Invalidate cache for deleted item
+    metadata_cache.invalidate_item(message['plex_id'])
     with itemtypes.ITEMTYPE_FROM_PLEXTYPE[plex_type](None) as typus:
         typus.remove(message['plex_id'], plex_type=plex_type)
     return True, plex_type in v.PLEX_VIDEOTYPES, plex_type in v.PLEX_AUDIOTYPES

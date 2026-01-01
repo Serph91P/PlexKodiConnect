@@ -1,3 +1,17 @@
+version 4.2.0:
+- PERFORMANCE: Smart metadata caching for reduced API requests
+- New: In-memory LRU cache for Plex metadata with configurable TTL
+- Cache types: Widget (5 min), Detail (15 min), Sync (60 min)
+- Automatic cache invalidation on item updates/deletes via WebSocket
+- New: Background-sync batch optimization for incremental updates
+- Multiple WebSocket updates now processed in batches
+- New Settings: "Smart metadata caching" (default: enabled)
+- New Settings: "Metadata cache size" (default: 1000, range: 100-5000)
+- Cache statistics available via metadata_cache.get_cache_stats()
+- Thread-safe implementation for multi-threaded operations
+- Significantly reduced server load and improved widget performance
+- German and English translations for new settings
+
 version 4.1.0:
 - PERFORMANCE: Parallel batch requests for additional 2-4x speedup
 - Multi-threaded batch metadata loading (up to 4 concurrent requests)

@@ -8,6 +8,7 @@ from threading import Thread
 
 from .downloadutils import DownloadUtils as DU, exceptions
 from . import backgroundthread, utils, plex_tv, variables as v, app
+from . import metadata_cache
 
 ###############################################################################
 LOG = getLogger('PLEX.plex_functions')
@@ -480,7 +481,8 @@ def _poke_pms(pms, queue):
              url, pms['uuid'], xml.get('machineIdentifier'))
 
 
-def GetPlexMetadata(key, reraise=False, includeFields=None):
+def GetPlexMetadata(key, reraise=False, includeFields=None, use_cache=True,
+                    cache_type=None):
     """
     Returns raw API metadata for key as an etree XML.
 
@@ -492,10 +494,41 @@ def GetPlexMetadata(key, reraise=False, includeFields=None):
         reraise: Whether to reraise exceptions
         includeFields: Comma-separated field names to reduce response size (PKC 4.0)
                        Use WIDGET_FIELDS, SYNC_FIELDS constants or None for all fields
+        use_cache: Whether to use smart caching (PKC 4.2, default: True)
+        cache_type: Cache type for TTL selection (widget, detail, sync)
 
     Returns None or 401 if something went wrong
     """
     key = str(key)
+    
+    # PKC 4.2: Smart Caching - extract plex_id for cache lookup
+    plex_id = None
+    if use_cache and utils.settings('enableSmartCache') == 'true':
+        try:
+            if '/library/metadata/' in key:
+                plex_id = int(key.split('/library/metadata/')[-1].split('/')[0])
+            else:
+                plex_id = int(key)
+        except (ValueError, IndexError):
+            plex_id = None
+        
+        if plex_id:
+            # Determine cache type based on includeFields
+            if cache_type is None:
+                if includeFields == WIDGET_FIELDS:
+                    cache_type = metadata_cache.CACHE_TYPE_WIDGET
+                elif includeFields == SYNC_FIELDS:
+                    cache_type = metadata_cache.CACHE_TYPE_SYNC
+                else:
+                    cache_type = metadata_cache.CACHE_TYPE_DETAIL
+            
+            # Try to get from cache
+            cache = metadata_cache.get_cache()
+            cached = cache.get(plex_id, cache_type)
+            if cached is not None:
+                LOG.debug('Cache hit for plex_id %s', plex_id)
+                return cached
+    
     if '/library/metadata/' in key:
         url = "{server}" + key
     else:
@@ -542,6 +575,12 @@ def GetPlexMetadata(key, reraise=False, includeFields=None):
         except (TypeError, IndexError, AttributeError):
             LOG.error("Error retrieving metadata for %s", url)
             xml = None
+        else:
+            # PKC 4.2: Store in cache if enabled
+            if plex_id and use_cache and utils.settings('enableSmartCache') == 'true':
+                cache = metadata_cache.get_cache()
+                cache.set(plex_id, xml, cache_type or metadata_cache.CACHE_TYPE_DETAIL)
+                LOG.debug('Cached metadata for plex_id %s', plex_id)
         return xml
 
 
