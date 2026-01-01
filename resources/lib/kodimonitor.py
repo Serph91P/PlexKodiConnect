@@ -332,22 +332,27 @@ class KodiMonitor(xbmc.Monitor):
                 container_key = '/playQueues/%s' % playqueue.id
             else:
                 container_key = '/library/metadata/%s' % plex_id
+        if plex_type == v.PLEX_TYPE_EPISODE and \
+                xbmc.getCondVisibility('System.AddonIsEnabled(service.upnext)'):
+            # Let's use Up Next if the add-on is activated REGARDLESS of
+            # skipping credits is enabled or not
+            upnext_integration = True
+        else:
+            upnext_integration = False
         # Mechanik for Plex skip intro/credits/commercials feature
-        # PKC 4.0.5: Smart integration with UpNext - avoid double notifications
-        # Credits markers are needed both for skip credits AND for Up Next timing
-        upnext_active = (plex_type == v.PLEX_TYPE_EPISODE and 
-                        utils.settings('enableUpNext') == 'true')
-        
         if utils.settings('enableSkipIntro') == 'true' \
                 or utils.settings('enableSkipCredits') == 'true' \
                 or utils.settings('enableSkipCommercials') == 'true':
             status['markers'] = item.api.markers()
             status['markers_hidden'] = {}
-        # Set credits markers if skip credits OR Up Next is enabled
-        # Up Next uses these markers for notification timing
-        if utils.settings('enableSkipCredits') == 'true' or upnext_active:
             status['first_credits_marker'] = item.api.first_credits_marker()
             status['final_credits_marker'] = item.api.final_credits_marker()
+        # Set credits markers if skip credits OR Up Next is enabled
+        # Up Next uses these markers for notification timing
+        elif upnext_integration:
+            status['first_credits_marker'] = item.api.first_credits_marker()
+            status['final_credits_marker'] = item.api.final_credits_marker()
+
         if item.playmethod is None and path and not path.startswith('plugin://'):
             item.playmethod = v.PLAYBACK_METHOD_DIRECT_PATH
         item.playerid = playerid
@@ -372,8 +377,7 @@ class KodiMonitor(xbmc.Monitor):
             task = InitVideoStreams(item)
             backgroundthread.BGThreader.addTask(task)
             # Send Up Next signal for episodes if enabled
-            if plex_type == v.PLEX_TYPE_EPISODE and \
-                    utils.settings('enableUpNext') == 'true':
+            if upnext_integration:
                 task = SendUpNextSignal(item, status)
                 backgroundthread.BGThreader.addTask(task)
 

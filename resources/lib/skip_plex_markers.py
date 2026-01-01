@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import xbmc
+
 from .windows.skip_marker import SkipMarkerDialog
 from . import app, utils, variables as v
 
@@ -18,8 +20,7 @@ def _should_skip_credits_popup():
     Returns True if we should suppress the PKC credits popup.
     This happens when Up Next is enabled, as Up Next will handle the credits notification.
     """
-    return utils.settings('enableUpNext') == 'true'
-
+    return xbmc.getCondVisibility('System.AddonIsEnabled(service.upnext)')
 
 def skip_markers(markers, markers_hidden):
     try:
