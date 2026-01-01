@@ -548,6 +548,16 @@
                         <popup>false</popup>
                     </control>
                 </setting>
+                <setting id="enableReduceBandwidth" type="boolean" label="30560" help="30561"> <!-- Reduce bandwidth (field filtering) -->
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle" />
+                </setting>
+                <setting id="enableBatchMetadata" type="boolean" label="30562" help="30563"> <!-- Batch metadata requests -->
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle" />
+                </setting>
             </group>
             <group id="4" label="136" />
             <group id="5">

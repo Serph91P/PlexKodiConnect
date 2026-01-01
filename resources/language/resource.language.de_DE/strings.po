@@ -735,6 +735,23 @@ msgctxt "#30550"
 msgid "Enable Up Next integration"
 msgstr "Up Next Integration aktivieren"
 
+# PKC Settings - Sync Options - Performance
+msgctxt "#30560"
+msgid "Reduce bandwidth (field filtering)"
+msgstr "Bandbreite reduzieren (Field Filtering)"
+
+msgctxt "#30561"
+msgid "Only request needed metadata fields from Plex server. Reduces bandwidth by 90-100x. Disable if you experience issues with missing metadata."
+msgstr "Nur benötigte Metadaten-Felder vom Plex Server anfordern. Reduziert Bandbreite um 90-100x. Deaktivieren falls Metadaten fehlen."
+
+msgctxt "#30562"
+msgid "Batch metadata requests"
+msgstr "Metadaten in Batches laden"
+
+msgctxt "#30563"
+msgid "Load metadata in batches of 100 items instead of individual requests. Makes sync 25x faster. Disable if you experience sync issues."
+msgstr "Metadaten in 100er-Batches laden statt einzeln. Macht Sync 25x schneller. Deaktivieren bei Sync-Problemen."
+
 # Welcome to Plex notification
 msgctxt "#33000"
 msgid "Welcome"

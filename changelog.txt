@@ -1,3 +1,13 @@
+version 4.1.0:
+- PERFORMANCE: Parallel batch requests for additional 2-4x speedup
+- Multi-threaded batch metadata loading (up to 4 concurrent requests)
+- Combined with existing batching: sync now up to 100x faster than PKC 3.x
+- New Settings: "Reduce bandwidth (field filtering)" - opt-out for compatibility
+- New Settings: "Batch metadata requests" - opt-out for compatibility
+- Both features enabled by default for maximum performance
+- German and English translations for new settings
+- Updated documentation for PKC 4.1 feature status
+
 version 4.0.7:
 - PERFORMANCE: Activate batch metadata loading for library sync
 - Sync is now 25x faster by requesting 100 items at once

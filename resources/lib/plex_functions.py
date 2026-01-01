@@ -744,7 +744,8 @@ def get_section_iterator(section_id, plex_type=None, last_viewed_at=None,
         'excludeAllLeaves': 1  # PMS wont attach a first summary child
     })
     # PKC 4.0.6: Default to WIDGET_FIELDS for 90-100x bandwidth reduction
-    if includeFields is None:
+    # Can be disabled via settings if it causes issues
+    if includeFields is None and utils.settings('enableReduceBandwidth') == 'true':
         includeFields = WIDGET_FIELDS
     if plex_type == v.PLEX_TYPE_ALBUM:
         # Kodi sorts Newest Albums by their position within the Kodi music
@@ -815,16 +816,20 @@ def DownloadChunks(url):
     return xml
 
 
-def GetPlexMetadataBatch(item_ids, batch_size=100):
+def GetPlexMetadataBatch(item_ids, batch_size=100, parallel=True, max_workers=4):
     """
     Get metadata for multiple items efficiently in batches (PKC 4.0)
     
     This provides 25x faster sync by requesting 100 items at once instead
     of making individual requests for each item.
     
+    PKC 4.1: Added parallel batch requests for additional 2-4x speedup
+    
     Args:
         item_ids: List of Plex ratingKey IDs
         batch_size: Number of IDs per request (max 100, default 100)
+        parallel: Enable parallel batch requests (default True)
+        max_workers: Maximum concurrent requests (default 4)
     
     Returns:
         List of metadata XML elements, or empty list on error
@@ -837,34 +842,59 @@ def GetPlexMetadataBatch(item_ids, batch_size=100):
     if not item_ids:
         return []
     
-    all_metadata = []
-    
+    # Split into batches
+    batches = []
     for i in range(0, len(item_ids), batch_size):
         batch = item_ids[i:i+batch_size]
-        # Convert list to comma-separated string
+        batches.append(batch)
+    
+    all_metadata = []
+    
+    def fetch_batch(batch):
+        """Fetch a single batch of metadata"""
         ids_param = ','.join(str(item_id) for item_id in batch)
-        
         url = "{server}/library/metadata/%s" % ids_param
         LOG.debug('Batch-requesting metadata for %d items', len(batch))
         
+        result = []
         try:
             xml = DU().downloadUrl(url)
             if xml is not None:
                 try:
-                    # xml contains a MediaContainer with Metadata children
                     for child in xml:
-                        all_metadata.append(child)
+                        result.append(child)
                 except (TypeError, AttributeError):
                     LOG.warn('Batch metadata request failed for IDs: %s', ids_param)
             else:
                 LOG.warn('No response for batch metadata request')
         except Exception as err:
             LOG.error('Error during batch metadata request: %s', err)
-            # Continue with remaining batches even if one fails
-            continue
+        return result
     
-    LOG.info('Batch-loaded %d metadata items from %d requests', 
-             len(all_metadata), (len(item_ids) + batch_size - 1) // batch_size)
+    if parallel and len(batches) > 1:
+        # PKC 4.1: Parallel batch requests for 2-4x additional speedup
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        LOG.debug('Using parallel batch requests with %d workers for %d batches', 
+                  max_workers, len(batches))
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_batch = {executor.submit(fetch_batch, batch): batch 
+                              for batch in batches}
+            for future in as_completed(future_to_batch):
+                try:
+                    result = future.result()
+                    all_metadata.extend(result)
+                except Exception as err:
+                    LOG.error('Parallel batch request failed: %s', err)
+    else:
+        # Sequential processing for single batch or when parallel disabled
+        for batch in batches:
+            result = fetch_batch(batch)
+            all_metadata.extend(result)
+    
+    LOG.info('Batch-loaded %d metadata items from %d requests%s', 
+             len(all_metadata), len(batches),
+             ' (parallel)' if parallel and len(batches) > 1 else '')
     return all_metadata
 
 

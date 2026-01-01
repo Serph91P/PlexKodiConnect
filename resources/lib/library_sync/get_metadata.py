@@ -106,8 +106,21 @@ class GetMetadataThread(common.LibrarySyncMixin,
         """
         Process a batch of items using GetPlexMetadataBatch
         PKC 4.0.7: 25x faster than individual requests
+        Can be disabled via settings 'enableBatchMetadata'
         """
         if not batch_items:
+            return
+        
+        # Check if batch metadata is enabled (default: true)
+        batch_enabled = utils.settings('enableBatchMetadata') == 'true'
+        
+        # If batch disabled, process all items individually
+        if not batch_enabled:
+            LOG.debug('Batch metadata disabled, processing %d items individually', len(batch_items))
+            for count, plex_id, section in batch_items:
+                if self.should_cancel():
+                    break
+                self._process_single_item(count, plex_id, section)
             return
         
         # Separate items that need individual processing (collections, children)

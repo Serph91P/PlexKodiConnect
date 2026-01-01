@@ -1,7 +1,7 @@
-# PlexKodiConnect 4.0.0 - Änderungen
+# PlexKodiConnect 4.1.0 - Änderungen
 
-**Datum:** 23. Dezember 2025  
-**Status:** Bereit für lokale Tests
+**Datum:** 1. Januar 2026  
+**Status:** ✅ Alle 4.0/4.1 Features implementiert & aktiv
 
 ---
 
@@ -195,19 +195,19 @@ for metadata in metadata_list:
 
 ## 🐛 Was ist implementiert und was nicht?
 
-**✅ VOLLSTÄNDIG IMPLEMENTIERT (PKC 4.0):**
+**✅ VOLLSTÄNDIG IMPLEMENTIERT (PKC 4.0.7):**
 
-1. **Field Filtering Infrastruktur:**
+1. **Field Filtering:**
    - ✅ Konstanten: WIDGET_FIELDS, SYNC_FIELDS, DETAIL_FIELDS
    - ✅ `GetPlexMetadata(includeFields=...)` Parameter verfügbar
    - ✅ `DownloadGen(includeFields=...)` Parameter verfügbar
-   - ⚠️ **Standardmäßig deaktiviert** (kann opt-in aktiviert werden)
+   - ✅ **Standardmäßig AKTIV** in `get_section_iterator()` mit WIDGET_FIELDS
 
-2. **Batch-Metadata Infrastruktur:**
+2. **Batch-Metadata:**
    - ✅ `GetPlexMetadataBatch(item_ids, batch_size)` Funktion fertig
    - ✅ Error-Handling implementiert
    - ✅ Logging implementiert
-   - ⚠️ **Noch nicht im Sync genutzt** (kann integriert werden)
+   - ✅ **Im Sync AKTIV** (get_metadata.py nutzt Batch-Loading)
 
 3. **Bereits existierende Features:**
    - ✅ Continue Watching Hub (`/hubs/continueWatching`) - AKTIV
@@ -215,51 +215,29 @@ for metadata in metadata_list:
    - ✅ Incremental Sync (`updatedAt>=`) - AKTIV
    - ✅ Kodi 21 InfoTag APIs (`USE_TAGS`) - AKTIV
 
-**📋 GEPLANT für zukünftige Versionen:**
-
-- **PKC 4.0.1:** Field Filtering opt-in Setting
-- **PKC 4.1:** Field Filtering standardmäßig aktiv für Widgets
-- **PKC 4.2:** Batch-Metadata im Sync aktiv
-- **PKC 4.3:** Performance-Metriken & Dashboard
-
-**Warum schrittweise?**
-- 🛡️ **Sicherheit:** Jede Änderung einzeln testbar
-- 🐛 **Debugging:** Ursache von Problemen klar erkennbar
-- 👥 **Community Feedback:** User können testen und berichten
-- 📊 **Messungen:** Performance vor/nach vergleichbar
+4. **Up Next Integration:**
+   - ✅ Automatische Erkennung wenn Up Next installiert
+   - ✅ Credits-Marker für Timing werden genutzt
+   - ✅ PKC Credits-Popup wird unterdrückt wenn Up Next aktiv
 
 ---
 
-## 🐛 Bekannte Limitierungen
+## 🔮 Roadmap für PKC 4.2+
 
-1. **Field Filtering:**
-   - Infrastruktur vorhanden, aber opt-in
-   - Benötigt Community-Tests für optimale Field-Sets
-   - Plex Server >= 1.43.0 erforderlich (sollte kein Problem sein)
+**PKC 4.1 (IMPLEMENTIERT ✅):**
+- [x] Field Filtering standardmäßig aktiv in `get_section_iterator()`
+- [x] Batch-Metadata in get_metadata.py integriert
+- [x] Settings: "Reduce bandwidth" Option (opt-out)
+- [x] Settings: "Batch metadata requests" Option (opt-out)
+- [x] Multi-Threading für parallele Batch-Requests (4 Worker)
 
-2. **Batch-Metadata:**
-   - Muss in get_metadata.py integriert werden für vollen Nutzen
-   - Plex Server muss Batch-Requests unterstützen (PMS 1.43.0+)
-
----
-
-## 🔮 Roadmap für PKC 4.1+
-
-**Kurzfristig (PKC 4.1):**
-- [ ] Field Filtering automatisch in widgets.py aktivieren
-- [ ] Batch-Metadata in get_metadata.py integrieren
-- [ ] Performance-Metriken/Logging verbessern
-- [ ] Settings: "Reduce bandwidth" Option
-
-**Mittelfristig (PKC 4.2):**
-- [ ] Multi-Threading für parallele Batch-Requests
+**PKC 4.2 (Geplant):**
 - [ ] Smart Caching basierend auf Field Filters
 - [ ] Background-Sync Optimierung
 
-**Langfristig (PKC 5.0):**
+**PKC 5.0 (Zukunft):**
 - [ ] JWT Authentication
 - [ ] Media Providers API (falls Plex alte API deprecated)
-- [ ] Weitere Plex API Modernisierungen
 
 ---
 

@@ -721,6 +721,23 @@ msgctxt "#30552"
 msgid "Note: Up Next integration takes priority over skip credits for TV shows"
 msgstr ""
 
+# PKC Settings - Sync Options - Performance
+msgctxt "#30560"
+msgid "Reduce bandwidth (field filtering)"
+msgstr ""
+
+msgctxt "#30561"
+msgid "Only request needed metadata fields from Plex server. Reduces bandwidth by 90-100x. Disable if you experience issues with missing metadata."
+msgstr ""
+
+msgctxt "#30562"
+msgid "Batch metadata requests"
+msgstr ""
+
+msgctxt "#30563"
+msgid "Load metadata in batches of 100 items instead of individual requests. Makes sync 25x faster. Disable if you experience sync issues."
+msgstr ""
+
 # PKC Settings - entries within toggles
 msgctxt "#31000"
 msgid "plex.tv"
