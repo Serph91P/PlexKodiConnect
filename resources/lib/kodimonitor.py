@@ -378,7 +378,7 @@ class KodiMonitor(xbmc.Monitor):
             backgroundthread.BGThreader.addTask(task)
             # Send Up Next signal for episodes if enabled
             if upnext_integration:
-                task = SendUpNextSignal(item, status)
+                task = SendUpNextSignal(item, status, playerid)
                 backgroundthread.BGThreader.addTask(task)
 
     def _on_av_change(self, data):
@@ -707,9 +707,10 @@ class SendUpNextSignal(backgroundthread.Task):
     We wait a bit to ensure playback is fully initialized.
     """
 
-    def __init__(self, item, status):
+    def __init__(self, item, status, playerid):
         self.item = item
         self.status = status
+        self.playerid = playerid
         super().__init__()
 
     def run(self):
@@ -719,7 +720,12 @@ class SendUpNextSignal(backgroundthread.Task):
         try:
             # Get notification time from Plex credits markers if available
             notification_time = upnext.get_notification_time_from_markers(self.status)
-            upnext.send_upnext_signal(self.item.api, notification_time)
+            signal_sent = upnext.send_upnext_signal(self.item.api, notification_time)
+            # Store whether Up Next found a next episode
+            # If False, PKC skip credits popup will still show for last episodes
+            app.PLAYSTATE.player_states[self.playerid]['upnext_signal_sent'] = signal_sent
+            if not signal_sent:
+                LOG.debug('Up Next: No next episode - PKC skip credits will handle last episode')
         except Exception as err:
             LOG.error('Exception encountered while sending Up Next signal:')
             LOG.error(err)
