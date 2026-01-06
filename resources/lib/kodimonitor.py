@@ -719,7 +719,14 @@ class SendUpNextSignal(backgroundthread.Task):
         try:
             # Get notification time from Plex credits markers if available
             notification_time = upnext.get_notification_time_from_markers(self.status)
-            upnext.send_upnext_signal(self.item.api, notification_time)
+            signal_sent = upnext.send_upnext_signal(self.item.api, notification_time)
+            # Store whether Up Next found a next episode
+            # If False, PKC skip credits popup will still show for last episodes
+            with app.APP.lock_playqueues:
+                playerid = self.item.playerid
+                app.PLAYSTATE.player_states[playerid]['upnext_signal_sent'] = signal_sent
+            if not signal_sent:
+                LOG.debug('Up Next: No next episode - PKC skip credits will handle last episode')
         except Exception as err:
             LOG.error('Exception encountered while sending Up Next signal:')
             LOG.error(err)

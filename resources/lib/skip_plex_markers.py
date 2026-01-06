@@ -18,9 +18,19 @@ MARKERS = {
 def _should_skip_credits_popup():
     """
     Returns True if we should suppress the PKC credits popup.
-    This happens when Up Next is enabled, as Up Next will handle the credits notification.
+    This happens when Up Next is enabled AND found a next episode.
+    If there's no next episode (last episode), we still show PKC credits popup.
     """
-    return xbmc.getCondVisibility('System.AddonIsEnabled(service.upnext)')
+    if not xbmc.getCondVisibility('System.AddonIsEnabled(service.upnext)'):
+        return False
+
+    # Check if Up Next actually sent a signal (found next episode)
+    with app.APP.lock_playqueues:
+        if len(app.PLAYSTATE.active_players) != 1:
+            return False
+        playerid = list(app.PLAYSTATE.active_players)[0]
+        player_state = app.PLAYSTATE.player_states.get(playerid, {})
+        return player_state.get('upnext_signal_sent', False)
 
 def skip_markers(markers, markers_hidden):
     try:
