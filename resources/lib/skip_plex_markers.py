@@ -12,7 +12,19 @@ MARKERS = {
     'commercial': (utils.lang(30530), 'enableSkipCommercials', 'enableAutoSkipCommercials'),  # Skip commercial
 }
 
-def skip_markers(markers, markers_hidden):
+
+def _should_skip_credits_popup(player_state):
+    """
+    Returns True if we should suppress the PKC credits popup.
+    This happens when Up Next is enabled AND Up Next found a next episode.
+    If there's no next episode (last episode), we still show PKC credits popup.
+    """
+    if utils.settings('enableUpNext') != 'true':
+        return False
+    # Only skip PKC popup if Up Next actually sent a signal (found next episode)
+    return player_state.get('upnext_signal_sent', False)
+
+def skip_markers(markers, markers_hidden, player_state):
     try:
         progress = app.APP.player.getTime()
     except RuntimeError:
@@ -22,6 +34,9 @@ def skip_markers(markers, markers_hidden):
     marker_definition = None
     for start, end, typus, _ in markers:
         marker_definition = MARKERS[typus]
+        # Skip the PKC credits popup only if Up Next found a next episode
+        if typus == 'credits' and _should_skip_credits_popup(player_state):
+            continue
         # The "-1" is important since timestamps/seeks are not exact and we
         # could end up in an endless loop within start & end
         # see https://github.com/croneter/PlexKodiConnect/issues/2002
@@ -72,8 +87,9 @@ def check():
         if len(app.PLAYSTATE.active_players) != 1:
             return
         playerid = list(app.PLAYSTATE.active_players)[0]
-        markers = app.PLAYSTATE.player_states[playerid]['markers']
-        markers_hidden = app.PLAYSTATE.player_states[playerid]['markers_hidden']
+        player_state = app.PLAYSTATE.player_states[playerid]
+        markers = player_state['markers']
+        markers_hidden = player_state['markers_hidden']
     if not markers:
         return
-    skip_markers(markers, markers_hidden)
+    skip_markers(markers, markers_hidden, player_state)
