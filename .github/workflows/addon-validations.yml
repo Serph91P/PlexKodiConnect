@@ -21,7 +21,7 @@ jobs:
       - name: Checkout Add-on
         uses: actions/checkout@v4
         with:
-          path: ${{ github.event.repository.name }}
+          path: plugin.video.plexkodiconnect
 
       - name: Install dependencies
         run: |
@@ -31,4 +31,4 @@ jobs:
       - name: Kodi Add-on Checker (Omega)
         id: kodi-addon-checker
         run: |
-          kodi-addon-checker ${{ github.event.repository.name }} --branch=omega
+          kodi-addon-checker plugin.video.plexkodiconnect --branch=omega
