@@ -217,6 +217,61 @@ Phase 2 ist komplett wenn:
 
 ---
 
+## 🐛 PKC 4.2.x Bugfix Verification — Watchstatus & UpNext/Playlist
+
+**Unit Tests:** `python -m pytest tests/test_bugfixes.py -v` (15 Tests)
+
+### Bug 1: Watchstatus / Fortschritt wird nicht an Plex übertragen
+
+#### Resume-Point Test
+- [ ] Film starten, ~50% schauen, stoppen
+- [ ] In Plex Web/App prüfen: Fortschritt korrekt angezeigt (±30 Sekunden)
+- [ ] Selben Film in Kodi wieder starten → Resume-Dialog erscheint mit korrekter Zeit
+- [ ] Log-Check: `PLEX.plex_functions` zeigt "Reported final playback progress"
+
+#### Watched-Status Test
+- [ ] Episode zu Ende schauen (über 90% oder Credits-Marker)
+- [ ] In Plex Web/App prüfen: Episode als "watched" markiert
+- [ ] Log-Check: `PLEX.kodimonitor` zeigt "Explicitly scrobbled item X as watched"
+
+#### Kurzes Abspielen Test
+- [ ] Film starten, nach <60 Sekunden stoppen
+- [ ] In Plex Web/App prüfen: Kein Fortschritt gespeichert (kein "In Progress")
+- [ ] Log-Check: Kein "Reported final playback progress" für diesen Stopp
+
+### Bug 2: UpNext / Playlist bricht nach ~2 Episoden ab
+
+#### Basis-Test: Durchlaufende Wiedergabe
+- [ ] Serie starten (Episode 1 von mind. 4)
+- [ ] UpNext-Notification erscheint am Ende von Episode 1
+- [ ] Episode 2 startet automatisch
+- [ ] UpNext-Notification erscheint am Ende von Episode 2
+- [ ] Episode 3 startet automatisch
+- [ ] Episode 4 startet automatisch (kritischer Punkt!)
+- [ ] Log-Check: "Found item plex_id X in existing playqueue" statt "Need to initialize"
+
+#### UpNext Retry Test
+- [ ] Log-Check bei langsamer Verbindung: "First attempt to fetch episodes failed, retrying..."
+- [ ] Nach Retry: UpNext-Signal wird trotzdem gesendet
+- [ ] Log-Check: "Up Next signal sent. Result:" erscheint für jede Episode
+
+#### Edge-Case: Manuelles Stoppen während UpNext
+- [ ] Serie abspielen, UpNext-Countdown erscheint
+- [ ] Manuell stoppen während Countdown
+- [ ] Episode 2 manuell starten
+- [ ] Ab Episode 2 funktioniert UpNext weiterhin normal
+
+#### Edge-Case: Playqueue Integrität
+- [ ] Serie starten, 3 Episoden automatisch durchlaufen
+- [ ] Kodi-Log prüfen: Keine "Could not initialize the Plex playlist" Fehler
+- [ ] Kodi-Log prüfen: Keine "PlaylistError" Exceptions
+
+---
+
+**Aktueller Status:** Testing läuft...
+
+---
+
 **Getestet von:** Max  
 **Test-Datum Start:** 22. Dezember 2025  
 **Test-Datum Ende:** TBD  
