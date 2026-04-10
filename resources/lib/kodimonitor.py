@@ -6,6 +6,7 @@ PKC Kodi Monitoring implementation
 from logging import getLogger
 from json import loads
 import copy
+import re
 
 import xbmc
 
@@ -163,6 +164,29 @@ class KodiMonitor(xbmc.Monitor):
             if db_item:
                 plex_id = db_item['plex_id']
                 plex_type = db_item['plex_type']
+        if not plex_id and path:
+            # Mutiple fallbacks: try extracting plex_id from addon URL path
+            # e.g. plugin://plugin.video.plexkodiconnect?plex_id=83199&plex_type=episode&mode=play
+            try:
+                plex_id = int(utils.REGEX_PLEX_ID.findall(path)[0])
+            except (IndexError, TypeError, ValueError):
+                # Also try the metadata URL format (metadata%2F12345)
+                try:
+                    plex_id = int(utils.REGEX_PLEX_ID_FROM_URL.findall(path)[0])
+                except (IndexError, TypeError, ValueError):
+                    pass
+            if plex_id:
+                m = re.search(r'plex_type=(\w+)', path)
+                if m:
+                    plex_type = m.group(1)
+                else:
+                    # Guess type from the path
+                    if 'tvshows' in path or 'episode' in path:
+                        plex_type = v.PLEX_TYPE_EPISODE
+                    elif 'movies' in path or 'movie' in path:
+                        plex_type = v.PLEX_TYPE_MOVIE
+                LOG.info('Extracted plex_id %s, plex_type %s from path %s',
+                         plex_id, plex_type, path)
         return plex_id, plex_type
 
     @staticmethod
@@ -248,6 +272,17 @@ class KodiMonitor(xbmc.Monitor):
                     return
         playqueue = app.PLAYQUEUES[playerid]
         info = js.get_player_props(playerid)
+        # Kodi bug: addon path playlist plays initially route through the
+        # audio queue (_playlist_playback sets kodi_playlist_playback on the
+        # audio queue) but Kodi may play the item on the video player.
+        # Check other playqueues for the flag if the current one lacks it.
+        if not playqueue.kodi_playlist_playback:
+            for pq in app.PLAYQUEUES:
+                if pq is not playqueue and pq.kodi_playlist_playback and pq.items:
+                    LOG.debug('Switching from %s to %s (kodi_playlist_playback)',
+                              playqueue, pq)
+                    playqueue = pq
+                    break
         if playqueue.kodi_playlist_playback:
             # Kodi will tell us the wrong position - of the playlist, not the
             # playqueue, when user starts playing from a playlist :-(
@@ -297,21 +332,42 @@ class KodiMonitor(xbmc.Monitor):
                             initialize = True
                 else:
                     initialize = False
+        LOG.info('PlayBackStart: initialize=%s, playerid=%s, pos=%s, '
+                 'playqueue_id=%s, playqueue_items=%s',
+                 initialize, playerid, pos,
+                 playqueue.id, len(playqueue.items))
         if initialize:
             LOG.debug('Need to initialize Plex and PKC playqueue')
             if not kodi_id or not kodi_type or not path:
                 kodi_id, kodi_type, path = self._json_item(playerid)
             plex_id, plex_type = self._get_ids(kodi_id, kodi_type, path)
             if not plex_id:
-                LOG.debug('No Plex id obtained - aborting playback report')
+                LOG.info('No Plex id obtained - aborting playback report')
                 app.PLAYSTATE.player_states[playerid] = copy.deepcopy(app.PLAYSTATE.template)
                 return
-            try:
-                item = PL.init_plex_playqueue(playqueue, plex_id=plex_id)
-            except exceptions.PlaylistError:
-                LOG.info('Could not initialize the Plex playlist')
-                return
-            item.file = path
+            # Before creating a brand new playqueue, check whether the item
+            # is already in the existing playqueue - this happens during
+            # continuous episode playback (e.g. UpNext advancement). Creating
+            # a new playqueue would destroy the remaining queued items.
+            item = None
+            if playqueue.id is not None:
+                for i, queue_item in enumerate(playqueue.items):
+                    if queue_item.plex_id == plex_id:
+                        LOG.debug('Found item plex_id %s in existing '
+                                  'playqueue at position %s - reusing',
+                                  plex_id, i)
+                        item = queue_item
+                        item.file = path
+                        pos = i
+                        break
+            if item is None:
+                # Item not in existing playqueue - initialize a new one
+                try:
+                    item = PL.init_plex_playqueue(playqueue, plex_id=plex_id)
+                except exceptions.PlaylistError:
+                    LOG.info('Could not initialize the Plex playlist')
+                    return
+                item.file = path
             # Set the Plex container key (e.g. using the Plex playqueue)
             container_key = None
             if info['playlistid'] != -1:
@@ -339,6 +395,42 @@ class KodiMonitor(xbmc.Monitor):
             upnext_integration = True
         else:
             upnext_integration = False
+        LOG.info('PlayBackStart: plex_id=%s, plex_type=%s, '
+                 'upnext_integration=%s, container_key=%s',
+                 plex_id, plex_type, upnext_integration, container_key)
+        # UpNext episode transition: Kodi does NOT fire Player.OnStop during
+        # playnext() transitions, so _playback_cleanup never runs for
+        # intermediate episodes. Detect the transition here and explicitly
+        # scrobble the old episode as watched before overwriting the state.
+        old_plex_id = status.get('plex_id')
+        if (old_plex_id and old_plex_id != plex_id
+                and status.get('upnext_signal_sent')):
+            LOG.info('UpNext transition: %s -> %s, scrobbling old episode',
+                     old_plex_id, plex_id)
+            PF.scrobble(old_plex_id, 'watched')
+            LOG.info('Scrobbled episode %s as watched (UpNext transition)',
+                     old_plex_id)
+            # Also update Kodi DB playcount so the local library reflects
+            # the watched state immediately
+            old_plex_type = status.get('plex_type')
+            with PlexDB(lock=False) as plexdb:
+                db_item = plexdb.item_by_id(old_plex_id, old_plex_type)
+            if db_item:
+                old_playcount = (status.get('playcount') or 0) + 1
+                with kodi_db.KodiVideoDB() as kodidb:
+                    kodidb.set_resume(db_item['kodi_fileid'],
+                                      0.0,
+                                      0.0,
+                                      old_playcount,
+                                      timing.kodi_now())
+                    if db_item.get('kodi_fileid_2'):
+                        kodidb.set_resume(db_item['kodi_fileid_2'],
+                                          0.0,
+                                          0.0,
+                                          old_playcount,
+                                          timing.kodi_now())
+                LOG.info('Updated Kodi DB playcount for %s to %s',
+                         old_plex_id, old_playcount)
         # Mechanik for Plex skip intro/credits/commercials feature
         if utils.settings('enableSkipIntro') == 'true' \
                 or utils.settings('enableSkipCredits') == 'true' \
@@ -378,6 +470,8 @@ class KodiMonitor(xbmc.Monitor):
             backgroundthread.BGThreader.addTask(task)
             # Send Up Next signal for episodes if enabled
             if upnext_integration:
+                LOG.info('Dispatching SendUpNextSignal task for plex_id %s',
+                         plex_id)
                 task = SendUpNextSignal(item, status, playerid)
                 backgroundthread.BGThreader.addTask(task)
 
@@ -399,8 +493,8 @@ def _playback_cleanup(ended=False):
     completely finished playing an item (because we will get and use wrong
     timing data otherwise)
     """
-    LOG.debug('playback_cleanup called. Active players: %s',
-              app.PLAYSTATE.active_players)
+    LOG.info('playback_cleanup called. ended=%s, active_players=%s',
+             ended, app.PLAYSTATE.active_players)
     if app.APP.skip_markers_dialog:
         app.APP.skip_markers_dialog.close()
         app.APP.skip_markers_dialog = None
@@ -439,8 +533,11 @@ def _record_playstate(status, ended):
     with PlexDB(lock=False) as plexdb:
         db_item = plexdb.item_by_id(status['plex_id'], status['plex_type'])
     if not db_item:
-        # Item not (yet) in Kodi library
-        LOG.debug('No playstate update due to Plex id not found: %s', status)
+        # Item not (yet) in Kodi library - still report to PMS so the Plex
+        # server records the correct watch state for widget/plugin playback
+        LOG.info('Plex id %s not in Kodi DB, reporting to PMS directly',
+                 status['plex_id'])
+        _report_playstate_to_pms(status, ended)
         return
     time, totaltime, playcount, last_played, reload_skin = _playback_progress(status, ended, db_item)
     with kodi_db.KodiVideoDB() as kodidb:
@@ -456,12 +553,65 @@ def _record_playstate(status, ended):
                               totaltime,
                               playcount,
                               last_played)
+    # Report the final playback progress to the PMS so the server records the
+    # correct resume point. The regular 1-second timeline updates may not have
+    # captured the very latest position before playback stopped.
+    time_ms = int(time * 1000)
+    duration_ms = int(totaltime * 1000)
+    if playcount is not None and playcount > status.get('playcount', 0):
+        # Video has been fully watched - explicitly tell PMS
+        PF.scrobble(status['plex_id'], 'watched')
+        LOG.info('Scrobbled item %s as watched', status['plex_id'])
+    elif time_ms > 0 and not status['external_player']:
+        # Video has a resume point - report it to PMS
+        PF.report_playback_progress(
+            status['plex_id'],
+            time_ms,
+            duration_ms,
+            state='stopped',
+            container_key=status.get('container_key'))
+        LOG.info('Reported progress for item %s: %s/%s ms',
+                 status['plex_id'], time_ms, duration_ms)
     if reload_skin:
         xbmc.executebuiltin('ReloadSkin()')
     else:
         xbmc.executebuiltin('Container.Refresh')
     task = backgroundthread.FunctionAsTask(_clean_file_table, None)
     backgroundthread.BGThreader.addTasksToFront([task])
+
+
+def _report_playstate_to_pms(status, ended):
+    """
+    Report final playstate to PMS for items not in the Kodi library.
+    This covers widget/plugin playback where items aren't synced locally.
+    """
+    totaltime = float(timing.kodi_time_to_millis(status['totaltime'])) / 1000
+    totaltime = totaltime or 0.000001
+    if status['external_player']:
+        time = 0.0
+    else:
+        time = float(timing.kodi_time_to_millis(status['time'])) / 1000
+    progress = time / totaltime
+    LOG.info('Non-library item %s: time %.1f / %.1f s (%.1f%%)',
+             status['plex_id'], time, totaltime, progress * 100)
+    if time < v.IGNORE_SECONDS_AT_START:
+        LOG.info('Ignoring playback less than %s seconds for %s',
+                 v.IGNORE_SECONDS_AT_START, status['plex_id'])
+        return
+    if ended or progress >= v.MARK_PLAYED_AT:
+        PF.scrobble(status['plex_id'], 'watched')
+        LOG.info('Scrobbled non-library item %s as watched', status['plex_id'])
+    elif not status['external_player']:
+        time_ms = int(time * 1000)
+        duration_ms = int(totaltime * 1000)
+        PF.report_playback_progress(
+            status['plex_id'],
+            time_ms,
+            duration_ms,
+            state='stopped',
+            container_key=status.get('container_key'))
+        LOG.info('Reported progress for non-library item %s: %s/%s ms',
+                 status['plex_id'], time_ms, duration_ms)
 
 
 def _playback_progress(status, ended, db_item):
@@ -714,18 +864,29 @@ class SendUpNextSignal(backgroundthread.Task):
         super().__init__()
 
     def run(self):
+        LOG.info('SendUpNextSignal: starting for plex_id %s',
+                 self.item.plex_id)
         # Wait for playback to stabilize before sending Up Next signal
         if app.APP.monitor.waitForAbort(2):
             return
         try:
             # Get notification time from Plex credits markers if available
             notification_time = upnext.get_notification_time_from_markers(self.status)
+            LOG.info('SendUpNextSignal: notification_time=%s', notification_time)
             signal_sent = upnext.send_upnext_signal(self.item.api, notification_time)
+            if not signal_sent:
+                # Retry once after a short wait - API call may have failed
+                LOG.info('Up Next signal not sent on first try, retrying...')
+                if app.APP.monitor.waitForAbort(3):
+                    return
+                signal_sent = upnext.send_upnext_signal(self.item.api, notification_time)
             # Store whether Up Next found a next episode
             # If False, PKC skip credits popup will still show for last episodes
             app.PLAYSTATE.player_states[self.playerid]['upnext_signal_sent'] = signal_sent
+            LOG.info('SendUpNextSignal: signal_sent=%s for plex_id %s',
+                     signal_sent, self.item.plex_id)
             if not signal_sent:
-                LOG.debug('Up Next: No next episode - PKC skip credits will handle last episode')
+                LOG.info('Up Next: No next episode - PKC skip credits will handle last episode')
         except Exception as err:
             LOG.error('Exception encountered while sending Up Next signal:')
             LOG.error(err)

@@ -73,7 +73,18 @@ def _get_next_episode_api(current_api):
     """
     xml = PF.show_episodes(current_api.grandparent_id())
     if xml is None:
+        # Retry once after a short wait - the PMS may have been temporarily
+        # unavailable (e.g. right after the previous episode's stop event)
+        LOG.info('First attempt to fetch episodes for show %s failed, retrying...',
+                 current_api.grandparent_id())
+        xbmc.sleep(2000)
+        xml = PF.show_episodes(current_api.grandparent_id())
+    if xml is None:
+        LOG.warning('Could not fetch episodes for show %s after retry',
+                    current_api.grandparent_id())
         return None
+    LOG.info('Fetched %s episodes for show %s, looking for plex_id %s',
+             len(xml), current_api.grandparent_id(), current_api.plex_id)
     for counter, episode in enumerate(xml):
         api = API(episode)
         if api.plex_id == current_api.plex_id:
@@ -109,7 +120,7 @@ def _upnext_signal(data):
         'method': 'JSONRPC.NotifyAll',
         'params': params,
     }))
-    LOG.debug('Up Next signal sent. Result: %s', result)
+    LOG.info('Up Next signal sent. Result: %s', result)
 
 
 def send_upnext_signal(current_api, notification_time=None):
@@ -130,11 +141,13 @@ def send_upnext_signal(current_api, notification_time=None):
 
     next_api = _get_next_episode_api(current_api)
     if next_api is None:
-        LOG.debug('No next episode available for Up Next')
+        LOG.info('No next episode available for Up Next (plex_id=%s)',
+                 current_api.plex_id)
         return False
 
-    LOG.debug('Preparing Up Next signal for episode "%s" -> "%s"',
-              current_api.title(), next_api.title())
+    LOG.info('Preparing Up Next signal: "%s" (plex_id=%s) -> "%s" (plex_id=%s)',
+             current_api.title(), current_api.plex_id,
+             next_api.title(), next_api.plex_id)
 
     # Build the play_url for the next episode
     # This URL will be called by Up Next to start playback
@@ -155,13 +168,15 @@ def send_upnext_signal(current_api, notification_time=None):
     if notification_time is not None:
         upnext_data['notification_time'] = notification_time
 
-    LOG.debug('Sending Up Next data: current="%s" S%02dE%02d, next="%s" S%02dE%02d',
-              current_api.grandparent_title(),
-              current_api.season_number() or 0,
-              current_api.index() or 0,
-              next_api.grandparent_title(),
-              next_api.season_number() or 0,
-              next_api.index() or 0)
+    LOG.info('Sending Up Next data: current="%s" S%02dE%02d, next="%s" S%02dE%02d, '
+             'notification_time=%s',
+             current_api.grandparent_title(),
+             current_api.season_number() or 0,
+             current_api.index() or 0,
+             next_api.grandparent_title(),
+             next_api.season_number() or 0,
+             next_api.index() or 0,
+             notification_time)
 
     _upnext_signal(upnext_data)
     return True

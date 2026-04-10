@@ -1142,6 +1142,37 @@ def scrobble(ratingKey, state):
     LOG.info("Toggled watched state for Plex item %s", ratingKey)
 
 
+def report_playback_progress(plex_id, time_ms, duration_ms, state='stopped',
+                             container_key=None):
+    """
+    Reports the final playback progress to the PMS via /:/timeline so the
+    server records the correct resume point / watched state. This is critical
+    when playback stops, because the regular 1-second timeline updates from
+    PlaystateMgr may not have sent the very latest position.
+
+    Args:
+        plex_id: Plex ratingKey
+        time_ms: Current playback position in milliseconds
+        duration_ms: Total duration in milliseconds
+        state: 'playing', 'paused', or 'stopped'
+        container_key: Optional container key (e.g. '/library/metadata/123')
+    """
+    params = {
+        'ratingKey': plex_id,
+        'key': '/library/metadata/%s' % plex_id,
+        'time': int(time_ms),
+        'duration': int(duration_ms),
+        'state': state,
+        'identifier': 'com.plexapp.plugins.library',
+    }
+    if container_key:
+        params['containerKey'] = container_key
+    url = '{server}/:/timeline'
+    DU().downloadUrl(utils.extend_url(url, params))
+    LOG.info('Reported final playback progress for %s: %sms / %sms (%s)',
+             plex_id, time_ms, duration_ms, state)
+
+
 def delete_item_from_pms(plexid):
     """
     Deletes the item plexid from the Plex Media Server (and the harddrive!).
