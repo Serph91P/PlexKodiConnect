@@ -25,8 +25,8 @@ SYNCHED = True
 # Need to chain the PMS keys
 KEY = None
 
-# use getVideoInfoTag to set some list item properties
-USE_TAGS = v.KODIVERSION >= 20
+# Modern Tags API is the only path now (Kodi 20+)
+USE_TAGS = True
 # properties that should be set by tag methods
 TAG_PROPERTIES = ("resumetime", "totaltime")
 

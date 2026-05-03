@@ -155,12 +155,11 @@ def convert_pkc_to_listitem(pkc_listitem):
                                 path=data.get('path'),
                                 offscreen=True)
     if data['info']:
-        # Use modern tags API for Kodi 20+ (setInfo is deprecated)
+        # Modern tags API (Kodi 20+)
         info_type = data['info'].get('type', 'video')
         info_labels = data['info'].get('infoLabels', {})
-        
-        if _KODIVERSION >= 20 and info_type == 'video':
-            # Modern API: getVideoInfoTag()
+
+        if info_type == 'video':
             tags = listitem.getVideoInfoTag()
             for key, value in info_labels.items():
                 if value is None:
@@ -176,16 +175,12 @@ def convert_pkc_to_listitem(pkc_listitem):
                 elif key == 'mediatype':
                     tags.setMediaType(str(value))
         else:
-            # Fallback for Kodi 19 or non-video items
             listitem.setInfo(**data['info'])
-    
+
     for stream in data['stream_info']:
-        if _KODIVERSION >= 20:
-            # Modern API would use VideoStreamDetail, but that's complex
-            # For now keep deprecated API for streams in transfer.py
-            pass
-        # Kodi documentation up to date? CAREFUL as type= seems to be cType=
-        # and values= seems to be dictionary=
+        # NOTE: addStreamInfo is deprecated in Kodi 20+; replacing with
+        # VideoStreamDetail / AudioStreamDetail / SubtitleStreamDetail
+        # is tracked for Phase B (kodi adapter layer).
         listitem.addStreamInfo(**stream)
     if data['art']:
         listitem.setArt(data['art'])
