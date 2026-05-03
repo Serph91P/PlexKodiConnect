@@ -4,7 +4,7 @@ from logging import getLogger
 import json
 
 from . import websocket
-from . import backgroundthread, app, variables as v, utils, companion
+from . import backgroundthread, app, variables as v, utils
 
 log = getLogger('PLEX.websocket')
 
@@ -66,26 +66,15 @@ def pms_on_message(ws, message):
 
 def alexa_on_message(ws, message):
     """
-    Called when we receive a message from Alexa
+    Called when we receive a message from Alexa.
+
+    NOTE (v5 cleanup): Plex Companion was removed in v5. Alexa voice control
+    relied on companion.process_command() and is therefore non-functional.
+    The websocket connection is kept alive (so account-wide notifications
+    still arrive) but remote-control commands are dropped with a warning.
+    A proper Alexa reimplementation is tracked for Phase E.
     """
-    log.debug('alexa message received: %s', message)
-    try:
-        message = utils.etree.fromstring(message)
-    except Exception as err:
-        log.error('Error decoding message from Alexa: %s %s', type(err), err)
-        log.error('message from Alexa: %s', message)
-        return
-    try:
-        if message.attrib['command'] == 'processRemoteControlCommand':
-            message = message[0]
-        else:
-            log.error('Unknown Alexa message received: %s', message)
-            return
-        companion.process_command(message.attrib['path'][1:], message.attrib)
-    except Exception as err:
-        log.exception('Could not parse Alexa message, error: %s %s',
-                      type(err), err)
-        log.error('message: %s', message)
+    log.debug('alexa message received (ignored, no companion): %s', message)
 
 
 def on_error(ws, error):

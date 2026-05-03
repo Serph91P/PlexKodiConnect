@@ -237,52 +237,6 @@
                 </setting>
             </group>
             <group id="2" />
-            <group id="3" label="39008"> <!-- Plex Companion: Allows flinging media to Kodi through Plex -->
-                <setting id="plexCompanion" type="boolean" label="39004" help=""> <!-- Enable Plex Companion (restart Kodi!) -->
-                    <level>0</level>
-                    <default>true</default>
-                    <control type="toggle" />
-                </setting>
-                <setting id="deviceName" type="string" label="30016" help="" parent="plexCompanion"> <!-- Device Name -->
-                    <level>0</level>
-                    <default />
-                    <constraints>
-                        <allowempty>true</allowempty>
-                    </constraints>
-                    <dependencies>
-                        <dependency type="visible">
-                            <condition operator="is" setting="plexCompanion">true</condition>
-                        </dependency>
-                    </dependencies>
-                    <control type="edit" format="string">
-                        <heading>30016</heading> <!-- Device Name -->
-                    </control>
-                </setting>
-                <setting id="companionPort" type="integer" label="39005" help="" parent="plexCompanion"> <!-- Plex Companion Port (change only if needed) -->
-                    <level>0</level>
-                    <default>3005</default>
-                    <dependencies>
-                        <dependency type="visible">
-                            <condition operator="is" setting="plexCompanion">true</condition>
-                        </dependency>
-                    </dependencies>
-                    <control type="edit" format="integer">
-                        <heading>39005</heading> <!-- Plex Companion Port (change only if needed) -->
-                    </control>
-                </setting>
-                <setting id="companionUpdatePort" type="integer" label="39078" help="" parent="plexCompanion"> <!-- Plex Companion Update Port (change only if needed) -->
-                    <level>0</level>
-                    <default>32412</default>
-                    <dependencies>
-                        <dependency type="visible">
-                            <condition operator="is" setting="plexCompanion">true</condition>
-                        </dependency>
-                    </dependencies>
-                    <control type="edit" format="integer">
-                        <heading>39078</heading> <!-- Plex Companion Update Port (change only if needed) -->
-                    </control>
-                </setting>
-            </group>
             <group id="4" />
             <group id="5" label="39700"> <!-- Amazon Alexa (Voice Recognition) -->
                 <setting id="enable_alexa" type="boolean" label="39701" help=""> <!-- Activate Alexa -->

@@ -12,7 +12,6 @@ from . import kodimonitor
 from . import sync, library_sync
 from . import websocket_client
 from . import plex_db
-from . import plex_companion
 from . import plex_functions as PF
 from . import playback_starter
 from . import variables as v
@@ -242,53 +241,6 @@ class Service(object):
                 # Enable the main loop to continue
                 app.APP.suspend = False
 
-    def watchlist_add(self, raw_params):
-        return self.watchlist_modify('addToWatchlist', raw_params)
-
-    def watchlist_remove(self, raw_params):
-        return self.watchlist_modify('removeFromWatchlist', raw_params)
-
-    def watchlist_modify(self, api_type, raw_params):
-        params = dict(utils.parse_qsl(raw_params))
-        kodi_id = params.get('kodi_id')
-        kodi_type = params.get('kodi_type')
-
-        LOG.info('watchlist_modify %s %s %s', api_type, kodi_id, kodi_type)
-
-        watchlist_plex_guid = None
-
-        with plex_db.PlexDB(lock=False) as plexdb:
-            plex_item = plexdb.item_by_kodi_id(kodi_id, kodi_type)
-            if not plex_item:
-                return False
-
-            plex_guid = plex_item['plex_guid']
-            if not plex_guid:
-                return False
-
-            plex_type = plex_item['plex_type']
-
-            if plex_type == v.PLEX_TYPE_MOVIE or plex_type == v.PLEX_TYPE_SHOW:
-                watchlist_plex_guid = plex_guid
-
-            elif plex_type == v.PLEX_TYPE_SEASON or plex_type == v.PLEX_TYPE_EPISODE:
-                plex_show_item = plexdb.item_by_id(plex_item['show_id'], v.PLEX_TYPE_SHOW)
-                if plex_show_item:
-                    watchlist_plex_guid = plex_show_item['plex_guid']
-
-        if watchlist_plex_guid is None:
-            return False
-
-        # ratingKey query param accepts the last section in the plex_guid
-        watchlist_rating_key = watchlist_plex_guid.split('/')[-1]
-
-        downloadutils.DownloadUtils().downloadUrl('https://discover.provider.plex.tv/actions/%s?ratingKey=%s' % (api_type, watchlist_rating_key),
-            action_type = 'PUT',
-            authenticate=False,
-            headerOptions={'X-Plex-Token': utils.window('plex_token')})
-
-        xbmc.executebuiltin('UpdateLibrary(video)')
-
     def authenticate(self):
         """
         Authenticate the current user or prompt to log-in
@@ -497,13 +449,6 @@ class Service(object):
         self.pms_ws = websocket_client.get_pms_websocketapp()
         self.alexa_ws = websocket_client.get_alexa_websocketapp()
         self.sync = sync.Sync()
-        self.companion_playstate_mgr = plex_companion.PlaystateMgr(
-            companion_enabled=utils.settings('plexCompanion') == 'true')
-        if utils.settings('plexCompanion') == 'true':
-            self.companion_polling = plex_companion.Polling(self.companion_playstate_mgr)
-        else:
-            self.companion_polling = None
-
         # Main PKC program loop
         while not self.should_cancel():
 
@@ -522,12 +467,6 @@ class Service(object):
                     task = playback_starter.PlaybackTask(
                         'dummy?mode=context_menu&%s'
                         % plex_command.replace('CONTEXT_menu?', ''))
-                elif plex_command.startswith('WATCHLIST_ADD?'):
-                    task = backgroundthread.FunctionAsTask(
-                        self.watchlist_add, None, plex_command.replace('WATCHLIST_ADD?', ''))
-                elif plex_command.startswith('WATCHLIST_REMOVE?'):
-                    task = backgroundthread.FunctionAsTask(
-                        self.watchlist_remove, None, plex_command.replace('WATCHLIST_REMOVE?', ''))
                 elif plex_command == 'choose_pms_server':
                     task = backgroundthread.FunctionAsTask(
                         self.choose_pms_server, None)
@@ -610,9 +549,6 @@ class Service(object):
                 self.startup_completed = True
                 self.pms_ws.start()
                 self.sync.start()
-                self.companion_playstate_mgr.start()
-                if self.companion_polling is not None:
-                    self.companion_polling.start()
                 self.alexa_ws.start()
 
             elif app.APP.is_playing:
