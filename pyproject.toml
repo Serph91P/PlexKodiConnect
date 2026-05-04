@@ -1,0 +1,44 @@
+[project]
+name = "plexkodiconnect"
+version = "5.0.0"
+description = "Plex client for Kodi 20+ (development tooling only — Kodi addon installation is via repo)"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-ra --strict-markers"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::SyntaxWarning",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [
+    "resources/lib/windows",      # vendored
+    "resources/lib/dependencies", # vendored libs (websocket, watchdog, defusedxml, ...)
+    "tests/fixtures",
+]
+
+[tool.ruff.lint]
+# Conservative ruleset for a 4.x → 5.0 cleanup branch.
+# We start narrow to avoid noisy churn; expand in Phase B.
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes (undefined names, unused imports, ...)
+    "W",   # pycodestyle warnings
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "RUF", # ruff-specific
+]
+ignore = [
+    "E501",  # line length handled by formatter / out of scope for cleanup
+    "B008",  # function-call-in-default-arg (Kodi API uses this pattern)
+    "UP032", # f-string vs .format — too noisy for a cleanup branch
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011", "F401"]

@@ -147,7 +147,11 @@ def wait_for_transfer(source='main'):
 
 def convert_pkc_to_listitem(pkc_listitem):
     """
-    Insert a PKCListItem() and you will receive a valid XBMC listitem
+    Insert a PKCListItem() and you will receive a valid XBMC listitem.
+
+    Uses the typed InfoTag* / *StreamDetail API (Kodi 20+). PKC v5 dropped
+    Kodi 19 support, so the deprecated setInfo() / addStreamInfo() paths are
+    gone -- everything flows through getVideoInfoTag() / getMusicInfoTag().
     """
     data = pkc_listitem.data
     listitem = xbmcgui.ListItem(label=data.get('label'),
@@ -155,38 +159,24 @@ def convert_pkc_to_listitem(pkc_listitem):
                                 path=data.get('path'),
                                 offscreen=True)
     if data['info']:
-        # Use modern tags API for Kodi 20+ (setInfo is deprecated)
-        info_type = data['info'].get('type', 'video')
-        info_labels = data['info'].get('infoLabels', {})
-        
-        if _KODIVERSION >= 20 and info_type == 'video':
-            # Modern API: getVideoInfoTag()
-            tags = listitem.getVideoInfoTag()
+        info_type = (data['info'].get('type') or 'video').lower()
+        info_labels = data['info'].get('infoLabels') or {}
+        if info_type in ('video', 'movie', 'tvshow', 'season', 'episode',
+                         'musicvideo'):
+            _apply_video_infolabels(listitem, info_type, info_labels)
+        elif info_type == 'music':
+            _apply_music_infolabels(listitem, info_labels)
+        elif info_type == 'pictures':
+            # Pictures don't have a typed InfoTag in Kodi 20+; props only.
             for key, value in info_labels.items():
                 if value is None:
                     continue
-                if key == 'title':
-                    tags.setTitle(str(value))
-                elif key == 'plot':
-                    tags.setPlot(str(value))
-                elif key == 'year':
-                    tags.setYear(int(value))
-                elif key == 'duration':
-                    tags.setDuration(int(value))
-                elif key == 'mediatype':
-                    tags.setMediaType(str(value))
-        else:
-            # Fallback for Kodi 19 or non-video items
-            listitem.setInfo(**data['info'])
-    
+                listitem.setProperty(key, str(value))
+
     for stream in data['stream_info']:
-        if _KODIVERSION >= 20:
-            # Modern API would use VideoStreamDetail, but that's complex
-            # For now keep deprecated API for streams in transfer.py
-            pass
-        # Kodi documentation up to date? CAREFUL as type= seems to be cType=
-        # and values= seems to be dictionary=
-        listitem.addStreamInfo(**stream)
+        _apply_stream(listitem, stream.get('cType'),
+                      stream.get('dictionary') or {})
+
     if data['art']:
         listitem.setArt(data['art'])
     for key, value in data['property'].items():
@@ -196,6 +186,190 @@ def convert_pkc_to_listitem(pkc_listitem):
     if data['contextmenu']:
         listitem.addContextMenuItems(data['contextmenu'])
     return listitem
+
+
+# ---------------------------------------------------------------------------
+# Typed InfoTag application helpers (Kodi 20+ only).
+#
+# Mirrors the field coverage of widgets.create_listitem() so PKC's two
+# rendering paths stay consistent. Keep new fields in sync with widgets.py.
+# ---------------------------------------------------------------------------
+
+def _coerce_int(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        try:
+            return int(float(value))
+        except (TypeError, ValueError):
+            return None
+
+
+def _coerce_float(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _split_list(value):
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple)):
+        return [str(v) for v in value if v is not None]
+    return [p for p in str(value).split(' / ') if p]
+
+
+def _apply_video_infolabels(listitem, info_type, labels):
+    tags = listitem.getVideoInfoTag()  # type: xbmc.InfoTagVideo
+    # Mediatype: prefer explicit infoLabel, else fall back to info_type.
+    mediatype = labels.get('mediatype') or (
+        info_type if info_type != 'video' else None)
+    if mediatype:
+        tags.setMediaType(str(mediatype))
+
+    str_setters = {
+        'title': tags.setTitle,
+        'originaltitle': tags.setOriginalTitle,
+        'sorttitle': tags.setSortTitle,
+        'plot': tags.setPlot,
+        'plotoutline': tags.setPlotOutline,
+        'tagline': tags.setTagLine,
+        'mpaa': tags.setMpaa,
+        'tvshowtitle': tags.setTvShowTitle,
+        'premiered': tags.setPremiered,
+        'status': tags.setTvShowStatus,
+        'aired': tags.setFirstAired,
+        'lastplayed': tags.setLastPlayed,
+        'dateadded': tags.setDateAdded,
+        'album': tags.setAlbum,
+        'trailer': tags.setTrailer,
+        'imdbnumber': tags.setIMDBNumber,
+        'code': tags.setProductionCode,
+        'set': tags.setSet,
+        'setoverview': tags.setSetOverview,
+        'path': tags.setPath,
+        'filenameandpath': tags.setFilenameAndPath,
+    }
+    int_setters = {
+        'year': tags.setYear,
+        'episode': tags.setEpisode,
+        'season': tags.setSeason,
+        'top250': tags.setTop250,
+        'tracknumber': tags.setTrackNumber,
+        'playcount': tags.setPlaycount,
+        'duration': tags.setDuration,
+        'votes': tags.setVotes,
+        'userrating': tags.setUserRating,
+        'dbid': tags.setDbId,
+    }
+    list_setters = {
+        'genre': tags.setGenres,
+        'director': tags.setDirectors,
+        'writer': tags.setWriters,
+        'studio': tags.setStudios,
+        'country': tags.setCountries,
+    }
+
+    for key, value in labels.items():
+        if value is None or key == 'mediatype':
+            continue
+        if key in str_setters:
+            str_setters[key](str(value))
+        elif key in int_setters:
+            coerced = _coerce_int(value)
+            if coerced is not None:
+                int_setters[key](coerced)
+        elif key in list_setters:
+            list_setters[key](_split_list(value))
+        elif key == 'rating':
+            coerced = _coerce_float(value)
+            if coerced is not None:
+                tags.setRating(coerced)
+        elif key == 'cast':
+            actors = []
+            for entry in value or []:
+                if isinstance(entry, (list, tuple)) and len(entry) >= 2:
+                    actors.append(xbmc.Actor(str(entry[0]), str(entry[1])))
+                else:
+                    actors.append(xbmc.Actor(str(entry)))
+            if actors:
+                tags.setCast(actors)
+        elif key == 'castandrole':
+            actors = [xbmc.Actor(str(name), str(role))
+                      for name, role in (value or [])]
+            if actors:
+                tags.setCast(actors)
+        elif key == 'tag':
+            tags.setTags(_split_list(value))
+        elif key == 'artist':
+            artists = value if isinstance(value, list) else [value]
+            tags.setArtists([str(a) for a in artists if a is not None])
+        # Anything else: ignore -- if it really matters, add an explicit
+        # branch above instead of leaning on deprecated setInfo().
+
+
+def _apply_music_infolabels(listitem, labels):
+    tags = listitem.getMusicInfoTag()
+    if labels.get('title') is not None:
+        tags.setTitle(str(labels['title']))
+    if labels.get('artist') is not None:
+        artist = labels['artist']
+        if isinstance(artist, list):
+            artist = ' / '.join(str(a) for a in artist)
+        tags.setArtist(str(artist))
+    if labels.get('album') is not None:
+        tags.setAlbum(str(labels['album']))
+    duration = _coerce_int(labels.get('duration'))
+    if duration is not None:
+        tags.setDuration(duration)
+    track = _coerce_int(labels.get('tracknumber') or labels.get('track'))
+    if track is not None:
+        tags.setTrack(track)
+    if labels.get('genre') is not None:
+        tags.setGenres(_split_list(labels['genre']))
+    if labels.get('year') is not None:
+        year = _coerce_int(labels['year'])
+        if year is not None:
+            tags.setYear(year)
+    if labels.get('lastplayed') is not None:
+        tags.setLastPlayed(str(labels['lastplayed']))
+    playcount = _coerce_int(labels.get('playcount'))
+    if playcount is not None:
+        tags.setPlayCount(playcount)
+    if labels.get('lyrics') is not None:
+        tags.setLyrics(str(labels['lyrics']))
+
+
+def _apply_stream(listitem, ctype, values):
+    if not ctype or not values:
+        return
+    tags = listitem.getVideoInfoTag()
+    ctype = ctype.lower()
+    try:
+        if ctype == 'video':
+            tags.addVideoStream(xbmcgui.VideoStreamDetail(
+                width=_coerce_int(values.get('width')) or 0,
+                height=_coerce_int(values.get('height')) or 0,
+                aspect=_coerce_float(values.get('aspect')) or 0.0,
+                duration=_coerce_int(values.get('duration')) or 0,
+                codec=str(values.get('codec') or ''),
+                stereoMode=str(values.get('stereomode') or ''),
+                language=str(values.get('language') or ''),
+                hdrType=str(values.get('hdrtype') or ''),
+            ))
+        elif ctype == 'audio':
+            tags.addAudioStream(xbmcgui.AudioStreamDetail(
+                channels=_coerce_int(values.get('channels')) or 0,
+                codec=str(values.get('codec') or ''),
+                language=str(values.get('language') or ''),
+            ))
+        elif ctype == 'subtitle':
+            tags.addSubtitleStream(xbmcgui.SubtitleStreamDetail(
+                language=str(values.get('language') or ''),
+            ))
+    except Exception as exc:  # pragma: no cover - defensive Kodi API fence
+        LOG.warning('Could not attach %s stream %s: %s', ctype, values, exc)
 
 
 class PKCListItem(object):
