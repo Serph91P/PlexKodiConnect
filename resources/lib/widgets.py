@@ -25,8 +25,8 @@ SYNCHED = True
 # Need to chain the PMS keys
 KEY = None
 
-# use getVideoInfoTag to set some list item properties
-USE_TAGS = v.KODIVERSION >= 20
+# Modern Tags API is the only path now (Kodi 20+)
+USE_TAGS = True
 # properties that should be set by tag methods
 TAG_PROPERTIES = ("resumetime", "totaltime")
 
@@ -544,18 +544,12 @@ def create_listitem(item, as_tuple=True, offscreen=True,
                 infolabels["season"] = item["season"]
                 infolabels["episode"] = item["episode"]
 
-            # streamdetails
+            # streamdetails (Kodi 20+ typed API only)
             if item.get("streamdetails"):
-                if use_tags_for_item:
-                    tags = liz.getVideoInfoTag()
-                    tags.addVideoStream(_create_VideoStreamDetail(item["streamdetails"].get("video", {})))
-                    tags.addAudioStream(_create_AudioStreamDetail(item["streamdetails"].get("audio", {})))
-                    tags.addSubtitleStream(_create_SubtitleStreamDetail(item["streamdetails"].get("subtitle", {})))
-
-                else:
-                    liz.addStreamInfo("video", item["streamdetails"].get("video", {}))
-                    liz.addStreamInfo("audio", item["streamdetails"].get("audio", {}))
-                    liz.addStreamInfo("subtitle", item["streamdetails"].get("subtitle", {}))
+                tags = liz.getVideoInfoTag()
+                tags.addVideoStream(_create_VideoStreamDetail(item["streamdetails"].get("video", {})))
+                tags.addAudioStream(_create_AudioStreamDetail(item["streamdetails"].get("audio", {})))
+                tags.addSubtitleStream(_create_SubtitleStreamDetail(item["streamdetails"].get("subtitle", {})))
 
             if "dateadded" in item:
                 infolabels["dateadded"] = item["dateadded"]
@@ -604,8 +598,8 @@ def create_listitem(item, as_tuple=True, offscreen=True,
         if "lastplayed" in item:
             infolabels["lastplayed"] = item["lastplayed"]
 
-        # assign the infolabels
-        if use_tags_for_item and nodetype == "Video":
+        # assign the infolabels (Kodi 20+ typed API only)
+        if nodetype == "Video":
             # filter out None valued properties
             infolabels = {k: v for k, v in infolabels.items() if v is not None}
 
@@ -704,31 +698,24 @@ def create_listitem(item, as_tuple=True, offscreen=True,
             if "mediatype" in infolabels:
                 tags.setMediaType(str(infolabels["mediatype"]))
         elif nodetype == "Music":
-            # Music items: use getMusicInfoTag() for Kodi 20+
-            if USE_TAGS:
-                tags = liz.getMusicInfoTag()
-                if "title" in infolabels:
-                    tags.setTitle(str(infolabels["title"]))
-                if "artist" in infolabels:
-                    tags.setArtist(str(infolabels.get("artist", "")))
-                if "album" in infolabels:
-                    tags.setAlbum(str(infolabels["album"]))
-                if "duration" in infolabels:
-                    tags.setDuration(int(infolabels["duration"]))
-                if "track" in infolabels:
-                    tags.setTrack(int(infolabels["track"]))
-                if "genre" in infolabels:
-                    tags.setGenres(infolabels["genre"].split(" / ") if isinstance(infolabels["genre"], str) else infolabels["genre"])
-            else:
-                # Fallback for Kodi 19 and older
-                liz.setInfo(type=nodetype, infoLabels=infolabels)
+            # Music items: use getMusicInfoTag() (Kodi 20+ typed API)
+            tags = liz.getMusicInfoTag()
+            if "title" in infolabels:
+                tags.setTitle(str(infolabels["title"]))
+            if "artist" in infolabels:
+                tags.setArtist(str(infolabels.get("artist", "")))
+            if "album" in infolabels:
+                tags.setAlbum(str(infolabels["album"]))
+            if "duration" in infolabels:
+                tags.setDuration(int(infolabels["duration"]))
+            if "track" in infolabels:
+                tags.setTrack(int(infolabels["track"]))
+            if "genre" in infolabels:
+                tags.setGenres(infolabels["genre"].split(" / ") if isinstance(infolabels["genre"], str) else infolabels["genre"])
         else:
-            # For non-Video, non-Music items or when tags not available
-            # This will eventually be removed when Kodi 19 support is dropped
-            if not USE_TAGS:
-                liz.setInfo(type=nodetype, infoLabels=infolabels)
-            else:
-                LOG.warning("Unsupported nodetype '%s' for modern tags API", nodetype)
+            # Pictures or other nodetypes have no typed InfoTag in Kodi 20+;
+            # values were already pushed via setProperty() above.
+            LOG.debug("No typed InfoTag for nodetype '%s'; relying on properties", nodetype)
 
         # artwork
         liz.setArt(item.get("art", {}))

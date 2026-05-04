@@ -4,7 +4,7 @@ from logging import getLogger
 import json
 
 from . import websocket
-from . import backgroundthread, app, variables as v, utils, companion
+from . import backgroundthread, app, variables as v, utils
 
 log = getLogger('PLEX.websocket')
 
@@ -28,14 +28,6 @@ def get_pms_uri():
     if app.ACCOUNT.pms_token:
         uri += '?X-Plex-Token=' + app.ACCOUNT.pms_token
     return uri
-
-
-def get_alexa_uri():
-    if not app.ACCOUNT.plex_token:
-        return
-    return (f'wss://pubsub.plex.tv/sub/websockets/{app.ACCOUNT.plex_user_id}/'
-            f'{v.PKC_MACHINE_IDENTIFIER}?'
-            f'X-Plex-Token={app.ACCOUNT.plex_token}')
 
 
 def pms_on_message(ws, message):
@@ -64,30 +56,6 @@ def pms_on_message(ws, message):
         app.APP.websocket_queue.put(message)
 
 
-def alexa_on_message(ws, message):
-    """
-    Called when we receive a message from Alexa
-    """
-    log.debug('alexa message received: %s', message)
-    try:
-        message = utils.etree.fromstring(message)
-    except Exception as err:
-        log.error('Error decoding message from Alexa: %s %s', type(err), err)
-        log.error('message from Alexa: %s', message)
-        return
-    try:
-        if message.attrib['command'] == 'processRemoteControlCommand':
-            message = message[0]
-        else:
-            log.error('Unknown Alexa message received: %s', message)
-            return
-        companion.process_command(message.attrib['path'][1:], message.attrib)
-    except Exception as err:
-        log.exception('Could not parse Alexa message, error: %s %s',
-                      type(err), err)
-        log.error('message: %s', message)
-
-
 def on_error(ws, error):
     status = ws.name + SETTINGS_STRING
     if isinstance(error, IOError):
@@ -106,7 +74,6 @@ def on_error(ws, error):
         # Status = Not connected
         utils.settings(ws.name + SETTINGS_STRING, value=utils.lang(15208))
     elif isinstance(error, websocket.WebSocketBadStatusException):
-        # Most likely Alexa not connecting, throwing a 403
         log.debug('%s: got a bad HTTP status: %s', ws.name, error)
         # Status = <value of exception>
         utils.settings(status, value=str(error))
@@ -253,52 +220,8 @@ class PMSWebsocketApp(PlexWebSocketApp):
                            value=utils.lang(39093))
 
 
-class AlexaWebsocketApp(PlexWebSocketApp):
-    name = 'alexa_websocket'
-
-    def __init__(self, *args, **kwargs):
-        self._enabled = utils.settings('enable_alexa') == 'true'
-        super().__init__(*args, **kwargs)
-
-    def get_uri(self):
-        return get_alexa_uri()
-
-    def should_suspend(self):
-        """
-        Returns True if the thread needs to suspend.
-        """
-        return self._suspended or \
-            app.ACCOUNT.restricted_user or \
-            not app.ACCOUNT.plex_token
-
-    def set_suspension_settings_status(self):
-        if utils.settings('enable_alexa') != 'true':
-            # Status = Disabled
-            utils.settings(self.name + SETTINGS_STRING,
-                           value=utils.lang(24023))
-        elif app.ACCOUNT.restricted_user:
-            # Status = Managed Plex User - not connected
-            utils.settings(self.name + SETTINGS_STRING,
-                           value=utils.lang(39094))
-        elif not app.ACCOUNT.plex_token:
-            # Status = Not logged in to plex.tv
-            utils.settings(self.name + SETTINGS_STRING,
-                           value=utils.lang(39226))
-        else:
-            # Status = 'Suspended - not connected'
-            utils.settings(self.name + SETTINGS_STRING,
-                           value=utils.lang(39093))
-
-
 def get_pms_websocketapp():
     return PMSWebsocketApp(on_open=on_open,
                            on_message=pms_on_message,
                            on_error=on_error,
                            on_close=on_close)
-
-
-def get_alexa_websocketapp():
-    return AlexaWebsocketApp(on_open=on_open,
-                             on_message=alexa_on_message,
-                             on_error=on_error,
-                             on_close=on_close)
