@@ -46,24 +46,26 @@ Legende:
 | Plex Companion (fling-to-Kodi)       |   ❌    |   ❌    |   ❌    | Code + Settings raus |
 | Plex Watchlist                       |   ❌    |   ❌    |   ❌    | Context-Items + Nodes raus |
 | Live TV / DVR                        |   n/a   |   n/a   |   n/a   | nie implementiert; Skip-Filter in websocket bleibt |
-| Alexa-Voice                          |   🟡    |   🟡    |   🟡    | gestubbt — endgültige Entscheidung in Phase E |
+| Alexa-Voice                          |   ❌    |   ❌    |   ❌    | mit Companion entfernt (war ein dünner Wrapper) |
 
 ## Bekannte offene Baustellen (werden in den Phasen adressiert)
 
-- **Phase B — Kodi-Adapter-Layer:** `addStreamInfo` ist deprecated in Kodi
-  20+. Heute wird sie noch in `transfer.py` aufgerufen. Geplant: dünner
-  Adapter, der intern `VideoStreamDetail`/`AudioStreamDetail`/
-  `SubtitleStreamDetail` nutzt.
-- **Phase B — Settings-Trimm:** Ziel ≤ 60 sichtbare Settings (heute > 100
-  nach Companion-Cut). Implementation-Detail-Toggles raus, nur
-  Verhalten-Toggles für User behalten.
+- **Phase B — Kodi-Adapter-Layer (gestartet):** Scaffold liegt unter
+  `resources/lib/kodi/` (Module `runtime`, `dialogs`, `listitem`).
+  Migration der Call-Sites (`transfer.py`, `itemtypes/`, `playback*`) folgt
+  Datei für Datei mit Tests.
+- **Phase B — Settings-Trimm (laufend):** 138 → 135 nach Alexa-Cut.
+  Ziel ≤ 60 sichtbare. Nächste Runde: Implementation-Detail-Toggles aus
+  `Sync`/`Customisation` (z.B. `dbSyncIndicator`, alte experimentelle Flags).
 - **Phase C — Plex-Layer:** `plex_functions.py` ist der schwammige
   Sammeltopf. Plan: in `plex/api/` mit klaren Submodulen (library, player,
   metadata, sync) zerschneiden.
 - **Phase D — Vendored libs raus:** `websocket`, `watchdog`, `pathtools`,
   `defusedxml`, `pathvalidate` über `addon.xml`-Requires beziehen.
-- **Phase E — Alexa:** entweder sauber reimplementieren (HTTP-Endpoint im
-  Service-Thread) oder cutten. Heute Stub.
+- ~~**Phase E — Alexa**~~ — erledigt: Alexa-Code, Settings-Group,
+  `ALEXA_TO_COMPANION`-Tabelle und `alexa_on_message`-Stub sind raus.
+  Begründung: Alexa-Steuerung war ein Wrapper über Plex-Companion; ohne
+  Companion gibt es keine sinnvolle Reimplementierung.
 - **Phase F — Doku & Release:** README-Cleanup, Migrations-Guide 4.x → 5.0,
   CHANGELOG.
 
@@ -72,7 +74,7 @@ Legende:
 ```bash
 python -m venv .venv
 .venv/bin/pip install -r requirements-dev.txt
-.venv/bin/pytest -q     # 29 passing
+.venv/bin/pytest -q     # 33 passing
 .venv/bin/ruff check .  # advisory in v5; gate kommt in Phase B
 ```
 

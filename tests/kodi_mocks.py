@@ -43,6 +43,9 @@ def _make_xbmc_mock():
     mock.executebuiltin = MagicMock()
     mock.getCondVisibility = MagicMock(return_value=True)
     mock.translatePath = MagicMock(side_effect=lambda x: x)
+    mock.getInfoLabel = MagicMock(side_effect=lambda label: {
+        'System.BuildVersion': '20.5 (20.5.0) Git:20251020-abc',
+    }.get(label, ''))
     return mock
 
 
