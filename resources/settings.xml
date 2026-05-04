@@ -238,27 +238,7 @@
             </group>
             <group id="2" />
             <group id="4" />
-            <group id="5" label="39700"> <!-- Amazon Alexa (Voice Recognition) -->
-                <setting id="enable_alexa" type="boolean" label="39701" help=""> <!-- Activate Alexa -->
-                    <level>0</level>
-                    <default>true</default>
-                    <control type="toggle" />
-                </setting>
-                <setting id="alexa_websocket_status" type="string" label="39089" help=""> <!-- Alexa connection status: -->
-                    <level>0</level>
-                    <default />
-                    <constraints>
-                        <allowempty>true</allowempty>
-                    </constraints>
-                    <dependencies>
-                        <dependency type="enable">
-                            <condition on="property" name="InfoBool">false</condition>
-                        </dependency>
-                    </dependencies>
-                    <control type="edit" format="string">
-                        <heading>39089</heading> <!-- Alexa connection status: -->
-                    </control>
-                </setting>
+            <group id="5"> <!-- Hidden state (was Alexa group, removed in v5) -->
                 <setting id="plex_restricteduser" type="boolean" help="">
                     <level>0</level>
                     <default>false</default>
@@ -270,16 +250,6 @@
                     <control type="toggle" />
                 </setting>
                 <setting id="plex_allows_mediaDeletion" type="boolean" help="">
-                    <level>0</level>
-                    <default>true</default>
-                    <dependencies>
-                        <dependency type="visible">
-                            <condition on="property" name="InfoBool">false</condition>
-                        </dependency>
-                    </dependencies>
-                    <control type="toggle" />
-                </setting>
-                <setting id="companion_show_gdm_port_warning" type="boolean" help="">
                     <level>0</level>
                     <default>true</default>
                     <dependencies>

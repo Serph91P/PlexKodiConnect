@@ -103,7 +103,8 @@ class Service(object):
         self.connection_check_counter = 0
         self.setup = None
         self.pms_ws = None
-        self.alexa_ws = None
+        # Phase E (v5): Alexa removed together with Plex Companion
+        # (Alexa control was a thin wrapper over the Companion protocol).
         # Flags for other threads
         self.connection_check_running = False
         self.auth_running = False
@@ -447,7 +448,6 @@ class Service(object):
 
         # Initialize important threads
         self.pms_ws = websocket_client.get_pms_websocketapp()
-        self.alexa_ws = websocket_client.get_alexa_websocketapp()
         self.sync = sync.Sync()
         # Main PKC program loop
         while not self.should_cancel():
@@ -549,7 +549,6 @@ class Service(object):
                 self.startup_completed = True
                 self.pms_ws.start()
                 self.sync.start()
-                self.alexa_ws.start()
 
             elif app.APP.is_playing:
                 skip_plex_markers.check()

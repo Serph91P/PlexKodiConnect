@@ -30,14 +30,6 @@ def get_pms_uri():
     return uri
 
 
-def get_alexa_uri():
-    if not app.ACCOUNT.plex_token:
-        return
-    return (f'wss://pubsub.plex.tv/sub/websockets/{app.ACCOUNT.plex_user_id}/'
-            f'{v.PKC_MACHINE_IDENTIFIER}?'
-            f'X-Plex-Token={app.ACCOUNT.plex_token}')
-
-
 def pms_on_message(ws, message):
     """
     Called when we receive a message from the PMS, e.g. when a new library
@@ -64,19 +56,6 @@ def pms_on_message(ws, message):
         app.APP.websocket_queue.put(message)
 
 
-def alexa_on_message(ws, message):
-    """
-    Called when we receive a message from Alexa.
-
-    NOTE (v5 cleanup): Plex Companion was removed in v5. Alexa voice control
-    relied on companion.process_command() and is therefore non-functional.
-    The websocket connection is kept alive (so account-wide notifications
-    still arrive) but remote-control commands are dropped with a warning.
-    A proper Alexa reimplementation is tracked for Phase E.
-    """
-    log.debug('alexa message received (ignored, no companion): %s', message)
-
-
 def on_error(ws, error):
     status = ws.name + SETTINGS_STRING
     if isinstance(error, IOError):
@@ -95,7 +74,6 @@ def on_error(ws, error):
         # Status = Not connected
         utils.settings(ws.name + SETTINGS_STRING, value=utils.lang(15208))
     elif isinstance(error, websocket.WebSocketBadStatusException):
-        # Most likely Alexa not connecting, throwing a 403
         log.debug('%s: got a bad HTTP status: %s', ws.name, error)
         # Status = <value of exception>
         utils.settings(status, value=str(error))
@@ -242,52 +220,8 @@ class PMSWebsocketApp(PlexWebSocketApp):
                            value=utils.lang(39093))
 
 
-class AlexaWebsocketApp(PlexWebSocketApp):
-    name = 'alexa_websocket'
-
-    def __init__(self, *args, **kwargs):
-        self._enabled = utils.settings('enable_alexa') == 'true'
-        super().__init__(*args, **kwargs)
-
-    def get_uri(self):
-        return get_alexa_uri()
-
-    def should_suspend(self):
-        """
-        Returns True if the thread needs to suspend.
-        """
-        return self._suspended or \
-            app.ACCOUNT.restricted_user or \
-            not app.ACCOUNT.plex_token
-
-    def set_suspension_settings_status(self):
-        if utils.settings('enable_alexa') != 'true':
-            # Status = Disabled
-            utils.settings(self.name + SETTINGS_STRING,
-                           value=utils.lang(24023))
-        elif app.ACCOUNT.restricted_user:
-            # Status = Managed Plex User - not connected
-            utils.settings(self.name + SETTINGS_STRING,
-                           value=utils.lang(39094))
-        elif not app.ACCOUNT.plex_token:
-            # Status = Not logged in to plex.tv
-            utils.settings(self.name + SETTINGS_STRING,
-                           value=utils.lang(39226))
-        else:
-            # Status = 'Suspended - not connected'
-            utils.settings(self.name + SETTINGS_STRING,
-                           value=utils.lang(39093))
-
-
 def get_pms_websocketapp():
     return PMSWebsocketApp(on_open=on_open,
                            on_message=pms_on_message,
                            on_error=on_error,
                            on_close=on_close)
-
-
-def get_alexa_websocketapp():
-    return AlexaWebsocketApp(on_open=on_open,
-                             on_message=alexa_on_message,
-                             on_error=on_error,
-                             on_close=on_close)

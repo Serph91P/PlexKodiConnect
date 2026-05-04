@@ -562,18 +562,6 @@ KODI_SUPPORTED_IMAGES = (
 )
 
 
-# Translation table from Alexa websocket commands to Plex Companion
-ALEXA_TO_COMPANION = {
-    'queryKey': 'key',
-    'queryOffset': 'offset',
-    'queryMachineIdentifier': 'machineIdentifier',
-    'queryProtocol': 'protocol',
-    'queryAddress': 'address',
-    'queryPort': 'port',
-    'queryContainerKey': 'containerKey',
-    'queryToken': 'token',
-}
-
 # Kodi sort methods for xbmcplugin.addSortMethod()
 SORT_METHODS_DIRECTORY = (
     'SORT_METHOD_UNSORTED',  # sorted as returned from Plex
