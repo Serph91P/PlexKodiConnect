@@ -3,3 +3,4 @@ __pycache__/
 machine_guid
 /resources/media/Thumbs.db
 /.venv/
+.hermes/
