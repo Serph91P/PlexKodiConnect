@@ -601,8 +601,12 @@ def create_listitem(item, as_tuple=True, offscreen=True,
         if "lastplayed" in item:
             infolabels["lastplayed"] = item["lastplayed"]
 
-        # assign the infolabels (Kodi 20+ typed API only)
-        if nodetype == "Video":
+        # assign the infolabels (Kodi 20+ typed API only).
+        # PKCListItem (used on the playback path) does not implement the typed
+        # InfoTag API and would raise NotImplementedError on getVideoInfoTag()
+        # / getMusicInfoTag(). All needed values were already pushed via
+        # setProperty() above, so skip the typed block for PKCListItem.
+        if nodetype == "Video" and use_tags_for_item:
             # filter out None valued properties
             infolabels = {k: v for k, v in infolabels.items() if v is not None}
 
@@ -700,7 +704,7 @@ def create_listitem(item, as_tuple=True, offscreen=True,
                 tags.setDateAdded(str(infolabels["dateadded"]))
             if "mediatype" in infolabels:
                 tags.setMediaType(str(infolabels["mediatype"]))
-        elif nodetype == "Music":
+        elif nodetype == "Music" and use_tags_for_item:
             # Music items: use getMusicInfoTag() (Kodi 20+ typed API)
             tags = liz.getMusicInfoTag()
             if "title" in infolabels:
