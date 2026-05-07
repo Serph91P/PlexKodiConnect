@@ -1,3 +1,8 @@
+version 5.0.1:
+- Fix NoneType crash on every playback attempt on Kodi 21 Omega
+- Guard typed InfoTag API blocks (getVideoInfoTag/getMusicInfoTag) against PKCListItem
+- Affected all Direct Play / Direct Stream / Transcode paths since 5.0.0
+
 version 4.2.0:
 - PERFORMANCE: Smart metadata caching for reduced API requests
 - New: In-memory LRU cache for Plex metadata with configurable TTL
