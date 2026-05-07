@@ -544,8 +544,11 @@ def create_listitem(item, as_tuple=True, offscreen=True,
                 infolabels["season"] = item["season"]
                 infolabels["episode"] = item["episode"]
 
-            # streamdetails (Kodi 20+ typed API only)
-            if item.get("streamdetails"):
+            # streamdetails (Kodi 20+ typed API only; PKCListItem has no
+            # getVideoInfoTag() so we must skip this for the playback path,
+            # otherwise NotImplementedError bubbles out of create_listitem and
+            # the caller receives None -> 'NoneType' has no attribute 'setPath')
+            if item.get("streamdetails") and use_tags_for_item:
                 tags = liz.getVideoInfoTag()
                 tags.addVideoStream(_create_VideoStreamDetail(item["streamdetails"].get("video", {})))
                 tags.addAudioStream(_create_AudioStreamDetail(item["streamdetails"].get("audio", {})))
