@@ -552,6 +552,15 @@ class Service(object):
 
             elif app.APP.is_playing:
                 skip_plex_markers.check()
+                # Refresh time/totaltime in PLAYSTATE.player_states once per
+                # second so _record_playstate (on Player.OnStop) sees the real
+                # current position. Without this, resume points snap back to
+                # the start of playback. The old plex_companion PlaystateMgr
+                # used to do this; it was removed in v5 cleanup.
+                self._playstate_tick = getattr(self, '_playstate_tick', 0) + 1
+                if self._playstate_tick >= 5:
+                    self._playstate_tick = 0
+                    kodimonitor.update_player_states()
 
             xbmc.sleep(200)
 
