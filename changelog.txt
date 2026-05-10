@@ -1,3 +1,9 @@
+version 5.0.2:
+- Fix resume points snapping back to playback start (or to 0) on Player.OnStop
+- Restore periodic refresh of player time/totaltime in PLAYSTATE.player_states
+- Regression from v5 cleanup that dropped plex_companion.PlaystateMgr (which
+  used to update these values once per second)
+
 version 5.0.1:
 - Fix NoneType crash on every playback attempt on Kodi 21 Omega
 - Guard typed InfoTag API blocks (getVideoInfoTag/getMusicInfoTag) against PKCListItem

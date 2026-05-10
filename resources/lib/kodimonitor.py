@@ -487,6 +487,31 @@ class KodiMonitor(xbmc.Monitor):
         pass
 
 
+def update_player_states():
+    """
+    Refresh time/totaltime/speed/position for every active Kodi player from
+    Kodi's JSON-RPC. Called periodically from the service main loop while
+    playback is active so that `_record_playstate` (triggered on Player.OnStop
+    via `_playback_cleanup`) sees the LATEST playback position instead of the
+    stale snapshot taken at PlayBackStart.
+
+    Historically this was done by `plex_companion.playstate.PlaystateMgr` once
+    per second. That module was removed in the v5 cleanup (commit 50153733),
+    which left `app.PLAYSTATE.player_states[playerid]['time']` frozen at the
+    start position. Result: resume always jumped back to where playback began,
+    not where the user actually stopped.
+    """
+    for playerid in list(app.PLAYSTATE.active_players):
+        try:
+            info = js.get_player_props(playerid)
+        except (KeyError, TypeError):
+            # Player just stopped between active_players check and JSON-RPC
+            continue
+        if not info:
+            continue
+        app.PLAYSTATE.player_states[playerid].update(info)
+
+
 def _playback_cleanup(ended=False):
     """
     PKC cleanup after playback ends/is stopped. Pass ended=True if Kodi
