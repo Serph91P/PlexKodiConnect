@@ -7,7 +7,9 @@ Parses workflow YAML and proves:
 - Least privilege and absence of legacy dispatch
 - Fail-closed resolver boundaries
 """
+import ast
 import json
+import urllib.request
 
 import yaml
 from pathlib import Path
@@ -51,6 +53,28 @@ def _caller_job(wf, needle):
         if needle in u:
             return jname, job
     return None, None
+
+
+def _resolver_contract():
+    """Execute only declarations from the embedded evidence resolver."""
+    wf = _load("notify-repository.yml")
+    resolve = wf["jobs"]["resolve"]
+    run = next(step["run"] for step in resolve["steps"] if step.get("id") == "resolve")
+    script = run.split("python - <<'PY'\n", 1)[1].rsplit("\nPY", 1)[0]
+    tree = ast.parse(script)
+    declarations = []
+    for node in tree.body:
+        if isinstance(node, (ast.Import, ast.ImportFrom, ast.ClassDef, ast.FunctionDef)):
+            declarations.append(node)
+        elif isinstance(node, ast.Assign) and any(
+            isinstance(target, ast.Name)
+            and target.id in {"MAX_EVIDENCE_ARCHIVE_BYTES", "artifact_opener"}
+            for target in node.targets
+        ):
+            declarations.append(node)
+    namespace = {}
+    exec(compile(ast.Module(declarations, type_ignores=[]), str(WORKFLOWS), "exec"), namespace)
+    return namespace
 
 
 # ── addon-validations.yml ─────────────────────────────────────────────────
@@ -325,3 +349,72 @@ class TestNotifyRepository:
         assert "dict" in script or "Mapping" in script or "object" in script.lower(), (
             "resolver must validate evidence is a JSON object"
         )
+
+    def test_artifact_redirect_strips_authorization_cross_origin(self):
+        contract = _resolver_contract()
+        request = urllib.request.Request(
+            "https://api.github.com/repos/example/project/actions/artifacts/1/zip",
+            headers={"Authorization": "Bearer secret"},
+        )
+
+        redirected = contract["_SafeRedirectHandler"]().redirect_request(
+            request,
+            None,
+            302,
+            "Found",
+            {},
+            "https://objects.example.net/evidence.zip",
+        )
+
+        assert redirected.get_header("Authorization") is None
+
+    def test_artifact_redirect_retains_authorization_same_origin(self):
+        contract = _resolver_contract()
+        request = urllib.request.Request(
+            "https://api.github.com/repos/example/project/actions/artifacts/1/zip",
+            headers={"Authorization": "Bearer secret"},
+        )
+
+        redirected = contract["_SafeRedirectHandler"]().redirect_request(
+            request,
+            None,
+            302,
+            "Found",
+            {},
+            "https://api.github.com/repos/example/project/actions/artifacts/2/zip",
+        )
+
+        assert redirected.get_header("Authorization") == "Bearer secret"
+
+    def test_evidence_archive_download_is_bounded_and_rejects_oversize(self):
+        contract = _resolver_contract()
+        maximum_bytes = contract["MAX_EVIDENCE_ARCHIVE_BYTES"]
+
+        class Response:
+            def __init__(self):
+                self.read_sizes = []
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                pass
+
+            def read(self, size=-1):
+                self.read_sizes.append(size)
+                return b"x" * size
+
+        response = Response()
+
+        class Opener:
+            def open(self, request, timeout):
+                return response
+
+        contract["_download_artifact"].__globals__.update(
+            artifact_opener=Opener(), token="secret"
+        )
+
+        with pytest.raises(SystemExit, match="exceeds"):
+            contract["_download_artifact"]("https://api.github.com/artifact.zip")
+
+        assert response.read_sizes == [maximum_bytes + 1]
