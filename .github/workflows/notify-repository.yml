@@ -1,23 +1,135 @@
 name: Notify Repository
 
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
-      - 'LICENSE'
-      - 'LICENSE.txt'
-      - 'CONTRIBUTING.md'
+  workflow_run:
+    workflows: ["Add-on Validations"]
+    types: [completed]
+    branches: [develop]
 
 jobs:
-  notify-repository:
+  resolve:
+    name: Resolve Validation Evidence
     runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      addon_id: ${{ steps.resolve.outputs.addon_id }}
+      addon_version: ${{ steps.resolve.outputs.addon_version }}
+      asset_name: ${{ steps.resolve.outputs.asset_name }}
+      artifact_sha256: ${{ steps.resolve.outputs.artifact_sha256 }}
+      publication_id: ${{ steps.resolve.outputs.publication_id }}
     steps:
-      - name: Trigger repository update
-        uses: peter-evans/repository-dispatch@v3
-        with:
-          token: ${{ secrets.REPO_DISPATCH_TOKEN }}
-          repository: Serph91P/repository.serph91p
-          event-type: addon-updated
-          client-payload: '{"addon": "PlexKodiConnect", "ref": "${{ github.ref }}", "sha": "${{ github.sha }}"}'
+      - name: Resolve validation outputs
+        id: resolve
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import io
+          import json
+          import os
+          import urllib.error
+          import urllib.request
+          import zipfile
+
+          token = os.environ["GITHUB_TOKEN"]
+          run_id = int(os.environ["RUN_ID"])
+
+          def api_get(url):
+              req = urllib.request.Request(url, headers={
+                  "Accept": "application/vnd.github+json",
+                  "Authorization": f"Bearer {token}",
+                  "X-GitHub-Api-Version": "2022-11-28",
+              })
+              with urllib.request.urlopen(req, timeout=30) as resp:
+                  return json.loads(resp.read())
+
+          run_url = f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{run_id}"
+          run = api_get(run_url)
+
+          package_art = None
+          evidence_art = None
+          page = 1
+          while True:
+              arts_url = f"{run_url}/artifacts?per_page=100&page={page}"
+              arts = api_get(arts_url)
+              for art in arts.get("artifacts", []):
+                  if art.get("expired", False):
+                      if art["name"] in ("addon-package", "validation-evidence"):
+                          raise SystemExit(
+                              f"required artifact {art['name']} is expired"
+                          )
+                      continue
+                  if art["name"] == "addon-package":
+                      if package_art is not None:
+                          raise SystemExit("duplicate addon-package artifact")
+                      package_art = art
+                  elif art["name"] == "validation-evidence":
+                      if evidence_art is not None:
+                          raise SystemExit("duplicate validation-evidence artifact")
+                      evidence_art = art
+              if not arts.get("artifacts") or len(arts["artifacts"]) < 100:
+                  break
+              page += 1
+
+          if package_art is None:
+              raise SystemExit("missing required addon-package artifact")
+          if evidence_art is None:
+              raise SystemExit("missing required validation-evidence artifact")
+
+          ev_url = evidence_art["archive_download_url"]
+          req = urllib.request.Request(ev_url, headers={
+              "Authorization": f"Bearer {token}",
+              "Accept": "application/vnd.github+json",
+          })
+          with urllib.request.urlopen(req, timeout=60) as resp:
+              ev_bytes = resp.read()
+          with zipfile.ZipFile(io.BytesIO(ev_bytes)) as zf:
+              names = zf.namelist()
+              if len(names) != 1 or names[0] != "validation-evidence.json":
+                  raise SystemExit(
+                      "evidence archive must contain exactly validation-evidence.json"
+                  )
+              ev_data = json.loads(zf.read("validation-evidence.json"))
+          if not isinstance(ev_data, dict):
+              raise SystemExit("evidence must be a JSON object")
+
+          output = {
+              "addon_id": ev_data["addon_id"],
+              "addon_version": ev_data["addon_version"],
+              "asset_name": ev_data["asset_name"],
+              "artifact_sha256": ev_data["artifact_sha256"],
+              "publication_id": ev_data["publication_id"],
+          }
+
+          gh_output = os.environ["GITHUB_OUTPUT"]
+          with open(gh_output, "a", encoding="ascii") as fh:
+              for key, value in output.items():
+                  fh.write(f"{key}={value}\n")
+          PY
+
+  notify:
+    name: Validate + Dispatch Publication
+    needs: resolve
+    uses: Serph91P/repository.serph91p/.github/workflows/reusable-notify-repository.yml@7adff881ab5d0a7fc63f7474a78b2688e2e6eee4
+    with:
+      source_repository: ${{ github.repository }}
+      candidate_sha: ${{ github.event.workflow_run.head_sha }}
+      validation_run_id: ${{ github.event.workflow_run.id }}
+      validation_workflow: "Add-on Validations"
+      validation_workflow_path: ".github/workflows/addon-validations.yml"
+      validation_event: "push"
+      expected_branch: "develop"
+      addon_id: ${{ needs.resolve.outputs.addon_id }}
+      addon_version: ${{ needs.resolve.outputs.addon_version }}
+      asset_name: ${{ needs.resolve.outputs.asset_name }}
+      artifact_sha256: ${{ needs.resolve.outputs.artifact_sha256 }}
+      publication_id: ${{ needs.resolve.outputs.publication_id }}
+    secrets:
+      REPO_DISPATCH_TOKEN: ${{ secrets.REPO_DISPATCH_TOKEN }}
