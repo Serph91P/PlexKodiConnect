@@ -1,7 +1,8 @@
 # Development & CI dependencies for PKC v5.
-# These are NOT shipped to users — Kodi resolves runtime deps via addon.xml.
+# These are NOT shipped to users -- Kodi resolves runtime deps via addon.xml.
 pytest>=7.4
 pytest-cov>=4.1
 ruff>=0.6.0
+pyyaml>=6.0        # workflow YAML parsing in publication contract tests
 defusedxml>=0.7.1   # for tests that exercise XML parsing without vendored copies
 requests>=2.22
