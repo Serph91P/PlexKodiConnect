@@ -19,14 +19,15 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = ROOT / ".github" / "workflows"
 
-TOOLING_SHA = "7adff881ab5d0a7fc63f7474a78b2688e2e6eee4"
+PACKAGE_TOOLING_SHA = "7adff881ab5d0a7fc63f7474a78b2688e2e6eee4"
+NOTIFIER_TOOLING_SHA = "5afd718564c0d55a914978e43aafd34c92a53029"
 ADDON_PKG_PIN = (
     "Serph91P/repository.serph91p/.github/workflows/"
-    f"reusable-addon-package.yml@{TOOLING_SHA}"
+    f"reusable-addon-package.yml@{PACKAGE_TOOLING_SHA}"
 )
 ADDON_NOTIFY_PIN = (
     "Serph91P/repository.serph91p/.github/workflows/"
-    f"reusable-notify-repository.yml@{TOOLING_SHA}"
+    f"reusable-notify-repository.yml@{NOTIFIER_TOOLING_SHA}"
 )
 
 
