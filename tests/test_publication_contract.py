@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = ROOT / ".github" / "workflows"
 
 PACKAGE_TOOLING_SHA = "7adff881ab5d0a7fc63f7474a78b2688e2e6eee4"
-NOTIFIER_TOOLING_SHA = "5afd718564c0d55a914978e43aafd34c92a53029"
+NOTIFIER_TOOLING_SHA = "a1730e889acf1816fd6d8c856c10b9ce97747829"
 ADDON_PKG_PIN = (
     "Serph91P/repository.serph91p/.github/workflows/"
     f"reusable-addon-package.yml@{PACKAGE_TOOLING_SHA}"
