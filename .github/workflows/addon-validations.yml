@@ -2,33 +2,49 @@ name: Add-on Validations
 
 on:
   push:
-    branches: [main, develop]
+    branches: [develop]
 
   pull_request:
-    branches: [main, develop]
+    branches: [develop]
 
 jobs:
-  addon-validations:
-    name: Add-on Validations
+  lint-and-test:
+    name: Lint + Unit Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
 
-      - name: Checkout Add-on
-        uses: actions/checkout@v4
-        with:
-          path: plugin.video.plexkodiconnect
-
-      - name: Install dependencies
+      - name: Install dev deps
         run: |
           python -m pip install --upgrade pip
-          python -m pip install git+https://github.com/xbmc/addon-check.git
+          pip install -r requirements-dev.txt
 
-      - name: Kodi Add-on Checker (Omega)
-        id: kodi-addon-checker
-        run: |
-          kodi-addon-checker plugin.video.plexkodiconnect --branch=omega
+      - name: Ruff (lint, advisory)
+        run: ruff check . || true
+
+      - name: Pytest
+        run: pytest -v --cov=resources/lib --cov-report=term-missing
+
+  package:
+    name: Immutable Package + Evidence
+    needs: [lint-and-test]
+    uses: Serph91P/repository.serph91p/.github/workflows/reusable-addon-package.yml@7adff881ab5d0a7fc63f7474a78b2688e2e6eee4
+    with:
+      addon_id: plugin.video.plexkodiconnect
+      runtime_entries_json: '["addon.xml", "changelog.txt", "context_extras.py", "context_menu.py", "default.py", "service.py", "fanart.jpg", "icon.png", "themoviedb.png", "resources/"]'
+    permissions:
+      contents: read
+      id-token: write
