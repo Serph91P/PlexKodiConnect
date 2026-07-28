@@ -140,7 +140,7 @@ jobs:
   notify:
     name: Validate + Dispatch Publication
     needs: resolve
-    uses: Serph91P/repository.serph91p/.github/workflows/reusable-notify-repository.yml@a1730e889acf1816fd6d8c856c10b9ce97747829
+    uses: Serph91P/repository.serph91p/.github/workflows/reusable-notify-repository.yml@c4c17149a2e8da28b59461b75bd1737bd31eb6e7
     with:
       source_repository: ${{ github.repository }}
       candidate_sha: ${{ github.event.workflow_run.head_sha }}
